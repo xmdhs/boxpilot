@@ -1,0 +1,295 @@
+// Package desktop bridges an application's main-thread state to the native tray.
+// It never stops the core or quits mygo.App; shutdown belongs to the application.
+package desktop
+
+import (
+	"errors"
+	"fmt"
+	"runtime"
+	"strings"
+
+	"github.com/egoist/mygo"
+)
+
+// Callbacks execute synchronously on the UI/main thread. Quit should initiate
+// the application's asynchronous shutdown. Show is an optional notification
+// after the window has been restored/shown/focused; it must not call Show again.
+type Callbacks struct {
+	Show        func()
+	Quit        func()
+	ToggleCore  func()
+	CoreRunning func() bool
+	LocalActive func() bool
+}
+
+type windowPort interface {
+	OnMinimize(func()) func()
+	OnClose(func(*mygo.CloseEvent)) func()
+	Hide()
+	Show()
+	Focus()
+	Restore()
+	IsMinimized() bool
+}
+
+type trayPort interface {
+	SetMenu(*mygo.Menu)
+	PopUpMenu()
+	OnClick(func()) func()
+	OnRightClick(func()) func()
+	Destroy()
+}
+
+type trayFactory func() (trayPort, error)
+
+// Controller and all its methods (including getters and probe-result setters)
+// are main-thread-only. New/Configure must run after App.WhenReady. No method
+// starts a goroutine or reads application callbacks from a worker.
+type Controller struct {
+	win         windowPort
+	cb          Callbacks
+	tray        trayPort
+	makeTray    trayFactory
+	platform    string
+	hostErr     error
+	enabled     bool
+	minimize    bool
+	close       bool
+	quitting    bool
+	destroyed   bool
+	hidden      bool
+	language    string
+	menu        *mygo.Menu
+	showItem    *mygo.MenuItem
+	toggleItem  *mygo.MenuItem
+	quitItem    *mygo.MenuItem
+	offMinimize func()
+	offClose    func()
+}
+
+var ErrTrayHostNotProbed = errors.New("Linux tray host has not been probed")
+var ErrDestroyed = errors.New("desktop controller has been destroyed")
+
+func New(win *mygo.Window, cb Callbacks) *Controller {
+	var port windowPort
+	if win != nil {
+		port = win
+	}
+	return newController(port, cb, runtime.GOOS, func() (trayPort, error) {
+		// Set the image separately: mygo.NewTray does not return its partially
+		// constructed tray on an image error, so this permits cleanup.
+		t, err := mygo.NewTray(mygo.TrayOptions{ID: "boxpilot-main", ToolTip: "BoxPilot"})
+		if err != nil {
+			return nil, err
+		}
+		if err := t.SetIcon(trayIconPNG(32), runtime.GOOS == "darwin"); err != nil {
+			t.Destroy()
+			return nil, err
+		}
+		return t, nil
+	})
+}
+
+func newController(win windowPort, cb Callbacks, platform string, factory trayFactory) *Controller {
+	c := &Controller{win: win, cb: cb, platform: platform, makeTray: factory, language: "en"}
+	if platform == "linux" {
+		c.hostErr = ErrTrayHostNotProbed
+	}
+	if win != nil {
+		c.offMinimize = win.OnMinimize(c.onMinimize)
+		c.offClose = win.OnClose(c.onClose)
+	}
+	return c
+}
+
+// SetTrayHostProbe installs a previously computed ProbeTrayHost result. Run the
+// probe before App.Run (or on a worker), then deliver its result on the main
+// thread before Configure. No D-Bus/process work occurs in this method or
+// Configure. Re-probe and supply a new result when the desktop host changes.
+// A failed probe removes an existing tray and recovers a window hidden by it.
+// Other platforms need no probe and ignore this result.
+func (c *Controller) SetTrayHostProbe(err error) {
+	if c.destroyed || c.platform != "linux" {
+		return
+	}
+	c.hostErr = err
+	if err != nil {
+		c.removeTray(true)
+	}
+}
+
+// Configure creates at most one live tray. Its error is a warning: hiding is
+// disabled, minimizing stays normal and closing requests application shutdown.
+// Re-enabling after a failure can retry; changing only hide preferences reuses
+// the existing tray. Disable removes the tray and recovers a hidden window.
+func (c *Controller) Configure(enabled, minimize, close bool) error {
+	if c.destroyed {
+		return ErrDestroyed
+	}
+	c.enabled, c.minimize, c.close = enabled, minimize, close
+	if !enabled {
+		c.removeTray(true)
+		return nil
+	}
+	if c.platform == "linux" && c.hostErr != nil {
+		c.removeTray(true)
+		return fmt.Errorf("tray unavailable; keeping normal window behavior: %w", c.hostErr)
+	}
+	if c.tray != nil {
+		c.RefreshMenu()
+		return nil
+	}
+	t, err := c.makeTray()
+	if err != nil {
+		if t != nil {
+			t.Destroy()
+		}
+		c.removeTray(true)
+		return fmt.Errorf("tray unavailable; keeping normal window behavior: %w", err)
+	}
+	if t == nil {
+		return errors.New("tray unavailable: factory returned no tray")
+	}
+	c.tray = t
+	c.buildMenu()
+	c.RefreshMenu()
+	if c.platform == "linux" {
+		// AppIndicator requires a permanent menu; no click listener keeps
+		// single clicks opening that menu without a double-click delay.
+		t.SetMenu(c.menu)
+	} else {
+		t.OnClick(c.Show)
+		t.OnRightClick(func() {
+			if !c.Available() {
+				return
+			}
+			c.RefreshMenu()
+			// Capture this tray: a menu callback may disable/destroy it while
+			// the native popup pumps events. Never touch a replacement tray.
+			t.SetMenu(c.menu)
+			defer t.SetMenu(nil)
+			t.PopUpMenu()
+		})
+	}
+	return nil
+}
+
+func (c *Controller) SetQuitting(quitting bool) { c.quitting = quitting }
+
+func (c *Controller) Available() bool {
+	return !c.destroyed && c.enabled && c.tray != nil && (c.platform != "linux" || c.hostErr == nil)
+}
+
+func (c *Controller) onMinimize() {
+	if !c.quitting && c.minimize && c.Available() && c.win != nil {
+		c.hidden = true
+		c.win.Hide()
+	}
+}
+
+func (c *Controller) onClose(e *mygo.CloseEvent) {
+	if c.quitting || c.destroyed {
+		return
+	}
+	// Even an ordinary close must let the application clean up its core.
+	e.PreventDefault()
+	if c.close && c.Available() && c.win != nil {
+		c.hidden = true
+		c.win.Hide()
+		return
+	}
+	c.requestQuit()
+}
+
+func (c *Controller) requestQuit() {
+	if !c.quitting && !c.destroyed && c.cb.Quit != nil {
+		c.cb.Quit()
+	}
+}
+
+// Show restores a minimized window, shows it and gives it focus.
+func (c *Controller) Show() {
+	if c.destroyed {
+		return
+	}
+	c.hidden = false
+	if c.win != nil {
+		if c.win.IsMinimized() {
+			c.win.Restore()
+		}
+		c.win.Show()
+		c.win.Focus()
+	}
+	if c.cb.Show != nil {
+		c.cb.Show()
+	}
+}
+
+func (c *Controller) buildMenu() {
+	c.showItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) { c.Show() }}
+	c.toggleItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) {
+		// Recheck at activation: the selected server may have changed since
+		// RefreshMenu. A remote selection never controls the local core.
+		if c.destroyed || c.quitting || c.cb.ToggleCore == nil || c.cb.LocalActive == nil || !c.cb.LocalActive() {
+			return
+		}
+		c.cb.ToggleCore()
+		c.RefreshMenu()
+	}}
+	c.quitItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) { c.requestQuit() }}
+	c.menu = mygo.NewMenu([]*mygo.MenuItem{c.showItem, c.toggleItem, mygo.Separator(), c.quitItem})
+}
+
+// RefreshMenu reads application state only on the calling main thread. Call it
+// after the local-core state or active server changes (especially on Linux).
+func (c *Controller) RefreshMenu() {
+	if c.destroyed || c.menu == nil {
+		return
+	}
+	running := c.cb.CoreRunning != nil && c.cb.CoreRunning()
+	local := c.cb.LocalActive != nil && c.cb.LocalActive()
+	show, start, stop, quit := "Show BoxPilot", "Start local core", "Stop local core", "Quit"
+	if strings.HasPrefix(strings.ToLower(c.language), "zh") {
+		show, start, stop, quit = "显示 BoxPilot", "启动本机核心", "停止本机核心", "退出"
+	}
+	label := start
+	if running {
+		label = stop
+	}
+	c.showItem.SetLabel(show)
+	c.toggleItem.SetLabel(label)
+	c.toggleItem.SetEnabled(local && c.cb.ToggleCore != nil && !c.quitting)
+	c.quitItem.SetLabel(quit)
+}
+
+func (c *Controller) SetLanguage(language string) {
+	c.language = language
+	c.RefreshMenu()
+}
+
+func (c *Controller) removeTray(recoverWindow bool) {
+	if c.tray != nil {
+		c.tray.Destroy()
+		c.tray = nil
+	}
+	c.menu, c.showItem, c.toggleItem, c.quitItem = nil, nil, nil, nil
+	if recoverWindow && c.hidden && !c.quitting {
+		c.Show()
+	}
+}
+
+// Destroy detaches only this bridge's handlers and releases its tray. It is
+// idempotent and does not destroy the window, stop the core or quit the app.
+func (c *Controller) Destroy() {
+	if c.destroyed {
+		return
+	}
+	c.removeTray(true)
+	if c.offMinimize != nil {
+		c.offMinimize()
+	}
+	if c.offClose != nil {
+		c.offClose()
+	}
+	c.destroyed = true
+}

@@ -1,0 +1,139 @@
+package app
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"boxpilot/internal/core"
+	"boxpilot/internal/storage"
+	"github.com/egoist/mygo/ui"
+)
+
+func TestCoreReadyCannotReplaceNewerRemoteSelection(t *testing.T) {
+	a := fixture(t)
+	a.settings.ActiveID = "remote-b"
+	a.generation = 8
+	client := a.client
+	a.coreStarted(core.State{Phase: "running", URL: "http://127.0.0.1:9090", Secret: "test-secret"}, 7)
+	if a.client != client || a.settings.ActiveID != "remote-b" {
+		t.Fatal("old core startup replaced the selected remote client")
+	}
+	a.settings.ActiveID = localID
+	a.coreStarted(core.State{Phase: "running", URL: "http://127.0.0.1:9090"}, 7)
+	if a.client != client {
+		t.Fatal("stale startup generation was accepted")
+	}
+}
+func TestCoreStartDisconnectsOldRemoteImmediately(t *testing.T) {
+	a := fixture(t)
+	a.settings.ActiveID = "remote-a"
+	p, err := core.SaveProfile(a.root, "", "test", core.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.profiles = []core.Profile{p}
+	a.settings.ProfileID = p.ID
+	a.settings.CorePath = "/nonexistent/boxpilot-test-sing-box"
+	a.manager = core.NewManager(a.root, nil)
+	a.coreState = core.State{Phase: "stopped"}
+	a.startCore(false)
+	if a.settings.ActiveID != localID || a.client != nil {
+		t.Fatal("local selection still points to remote client")
+	}
+}
+func TestCredentialJobsAreNotDroppedOnQuickSwitch(t *testing.T) {
+	a := fixture(t)
+	a.client = nil
+	a.settings.Servers = []storage.Server{{ID: "server-a", Name: "A", URL: "http://127.0.0.1:9091", Remember: "file"}, {ID: "server-b", Name: "B", URL: "http://127.0.0.1:9092", Remember: "file"}}
+	for _, s := range a.settings.Servers {
+		if err := storage.SaveSecret(a.root, s.ID, "test-only", s.Remember); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.activate("server-a")
+	a.activate("server-b")
+	jobs := 0
+	for k := range a.busy {
+		if strings.HasPrefix(k, "credentials-") {
+			jobs++
+		}
+	}
+	if jobs != 2 {
+		t.Fatalf("queued credential jobs=%d, want 2", jobs)
+	}
+}
+func TestDeleteServerUsesSavedSecretMode(t *testing.T) {
+	a := fixture(t)
+	a.client = nil
+	a.settings.Servers = []storage.Server{{ID: "server-a", Name: "A", Remember: "file"}}
+	if err := storage.SaveSecret(a.root, "server-a", "stored-plaintext-test", "file"); err != nil {
+		t.Fatal(err)
+	}
+	a.serverID = "server-a"
+	a.serverRemember = "session"
+	a.deleteServer()
+	a.workers.Wait()
+	if _, err := storage.LoadSecret(a.root, "server-a", "file"); !errors.Is(err, storage.ErrSecretNotFound) {
+		t.Fatalf("old file credential remains: %v", err)
+	}
+}
+func TestCredentialLoadDisablesSecretEditing(t *testing.T) {
+	a := fixture(t)
+	a.serverDialog = true
+	a.serverLoading = true
+	a.serverSecret = "unchanged"
+	tt := ui.NewTester(a.view, 1140, 780)
+	access, ok := tt.AccessByRole(ui.RoleTextField, "Secret")
+	if !ok || !access.Disabled {
+		t.Fatal("secret field remains editable while old credentials load")
+	}
+	if err := tt.Click("Secret"); err == nil {
+		tt.Type("new value")
+	}
+	if a.serverSecret != "unchanged" {
+		t.Fatal("disabled secret field changed")
+	}
+}
+func TestSavingProfileLocksEditorAndCannotDismiss(t *testing.T) {
+	a := fixture(t)
+	a.profileEditor = true
+	a.profileName = "Config"
+	a.profileContent = core.DefaultConfig()
+	a.busy["save-profile"] = true
+	tt := ui.NewTester(a.view, 1140, 780)
+	for _, label := range []string{"Configuration name", "Configuration content"} {
+		access, ok := tt.Access(label)
+		if !ok || !access.Disabled {
+			t.Fatalf("%s not locked during save", label)
+		}
+	}
+	tt.Key(0, ui.KeyEscape)
+	if !a.profileEditor {
+		t.Fatal("saving editor dismissed via Escape")
+	}
+	a.closeProfile()
+	if !a.profileEditor {
+		t.Fatal("saving editor dismissed via close action")
+	}
+}
+func TestUnsavedConfigurationConfirmationOnTop(t *testing.T) {
+	a := fixture(t)
+	a.profileEditor = true
+	a.profileDirty = true
+	a.profileName = "Config"
+	a.profileContent = core.DefaultConfig()
+	tt := ui.NewTester(a.view, 1140, 780)
+	if err := tt.Click("Close editor"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.confirmOpen {
+		t.Fatal("missing discard confirmation")
+	}
+	if err := tt.Click("Confirm"); err != nil {
+		t.Fatal(err)
+	}
+	if a.profileEditor || a.profileDirty {
+		t.Fatal("discard did not close editor")
+	}
+}

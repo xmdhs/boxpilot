@@ -1,0 +1,13 @@
+{
+  "name": "BoxPilot",
+  "identifier": "app.boxpilot.desktop",
+  "version": "0.1.0",
+  "icon": "resources/icon.png",
+  "out": "build",
+  "linux": {
+    "webview": false,
+    "command": "boxpilot",
+    "categories": ["Network", "Utility"],
+    "depends": ["libayatana-appindicator3-1", "libglib2.0-bin | dbus-bin"]
+  }
+}

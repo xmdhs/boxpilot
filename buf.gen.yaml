@@ -1,0 +1,12 @@
+version: v2
+plugins:
+  - local: protoc-gen-go
+    out: internal/gen
+    opt:
+      - paths=source_relative
+      - Mdaemon/started_service.proto=boxpilot/internal/gen/daemon
+  - local: protoc-gen-connect-go
+    out: internal/gen
+    opt:
+      - paths=source_relative
+      - Mdaemon/started_service.proto=boxpilot/internal/gen/daemon
