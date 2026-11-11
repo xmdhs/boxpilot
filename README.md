@@ -113,16 +113,9 @@ CGO_ENABLED=0 go tool mygo vet .
 CGO_ENABLED=0 go tool mygo build -platform linux/arm64
 ```
 
-`go tool mygo build` 负责图标和原生打包，`mygo.json` 已设置 `linux.webview: false`。未签名的跨平台可执行文件也可直接编译：
+使用 `go tool mygo build` 进行正式构建和平台打包；不要用裸 `go build` 代替，因为 MyGo 会处理应用资源、图标和平台包。MyGo 的生产构建默认通过 `-ldflags "-s -w"` 去除符号和 DWARF 调试信息。Linux 和 Windows 可执行文件在构建后再用 UPX 压缩；macOS 的 Mach-O 文件不经过 UPX。
 
-```sh
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags mygo_noinspector -o build/boxpilot.exe .
-CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -tags mygo_noinspector -o build/boxpilot-macos .
-```
-
-macOS 签名、公证、DMG 和 Windows 安装器需要相应平台工具及身份，不由这两个命令提供。
-
-GitHub Actions 会在 push 和 pull request 时运行单元测试、竞态检测、格式检查、`go vet` 和 MyGo 专用检查，并交叉编译 Linux、Windows、macOS 的 amd64/arm64 版本；常规 CI 不上传构建产物。手动运行 `CI` workflow 时填写 `release_tag`，构建成功后会创建或更新对应的 GitHub Release 并上传六个平台二进制。
+GitHub Actions 会在 push 和 pull request 时运行单元测试、竞态检测、格式检查、`go vet` 和 MyGo 专用检查；手动运行 `CI` workflow 并填写 `release_tag` 时，使用 `go tool mygo build` 交叉打包 Linux、Windows、macOS 的 amd64/arm64 版本，压缩 Linux/Windows 可执行文件，并将 MyGo 生成的平台包上传到对应的 GitHub Release。
 
 若在本会话一样的受限环境中构建，将 Go 缓存放到可写的临时目录：
 

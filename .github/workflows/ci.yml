@@ -93,21 +93,34 @@ jobs:
         with:
           go-version-file: boxpilot/go.mod
           cache-dependency-path: boxpilot/go.sum
-      - name: Compile
+      - name: Install UPX
+        if: matrix.goos == 'linux' || matrix.goos == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes upx-ucl
+      - name: Build and package with MyGo
         working-directory: boxpilot
         env:
           CGO_ENABLED: 0
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
         run: |
-          mkdir -p dist
-          go build -tags mygo_noinspector -o "dist/boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
-      - name: Stage release binary
+          go tool mygo build \
+            -platform "${{ matrix.goos }}/${{ matrix.goarch }}" \
+            -skip-installer -skip-dmg \
+            -o "dist" .
+          case "${{ matrix.goos }}" in
+            linux) binary="dist/linux-${{ matrix.goarch }}/boxpilot" ;;
+            windows) binary="dist/windows-${{ matrix.goarch }}/boxpilot.exe" ;;
+            *) binary="" ;;
+          esac
+          if [ -n "$binary" ]; then
+            upx --best --lzma "$binary"
+          fi
+      - name: Stage release packages
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: boxpilot/dist/boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          path: boxpilot/dist/${{ matrix.goos }}-${{ matrix.goarch }}
           if-no-files-found: error
           retention-days: 1
 
