@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"boxpilot/internal/core"
 	"github.com/egoist/mygo"
+	"github.com/xmdhs/boxpilot/internal/core"
 )
 
 const defaultRemoteUpdateMinutes = 60

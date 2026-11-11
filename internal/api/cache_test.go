@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 func TestConnectionMerge(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/core"
-	"boxpilot/internal/gen/daemon"
 	"connectrpc.com/connect"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/core"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 // 显式互通测试：日常 go test 不联网、不下载、不运行第三方程序。

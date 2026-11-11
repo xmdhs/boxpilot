@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
-	"boxpilot/internal/gen/daemon/daemonconnect"
 	"connectrpc.com/connect"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon/daemonconnect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"boxpilot/internal/core"
+	"github.com/xmdhs/boxpilot/internal/core"
 )
 
 func TestParseRemoteProfileImportLink(t *testing.T) {

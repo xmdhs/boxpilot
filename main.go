@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"boxpilot/internal/app"
-	"boxpilot/internal/storage"
 	"github.com/egoist/mygo"
+	"github.com/xmdhs/boxpilot/internal/app"
+	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func main() {

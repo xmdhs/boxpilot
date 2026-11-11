@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
 	"connectrpc.com/connect"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 func awaitSnapshot(t *testing.T, snapshots <-chan Snapshot, match func(Snapshot) bool) Snapshot {

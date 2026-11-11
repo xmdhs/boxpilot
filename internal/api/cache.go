@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
-	"boxpilot/internal/model"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/model"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -5,10 +5,10 @@
 package daemonconnect
 
 import (
-	daemon "boxpilot/internal/gen/daemon"
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	daemon "github.com/xmdhs/boxpilot/internal/gen/daemon"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 	strings "strings"

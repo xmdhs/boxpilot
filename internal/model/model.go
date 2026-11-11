@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 type ConnectionRow struct {

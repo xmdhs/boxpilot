@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/gen/daemon"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 type groupExpandOverride struct {

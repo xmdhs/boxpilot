@@ -1,4 +1,4 @@
-module boxpilot
+module github.com/xmdhs/boxpilot
 
 go 1.27.3
 

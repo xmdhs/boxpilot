@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
-	"boxpilot/internal/model"
 	"connectrpc.com/connect"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

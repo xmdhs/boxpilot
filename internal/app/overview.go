@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/gen/daemon"
-	"boxpilot/internal/model"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/model"
 )
 
 var cardIDs = []string{"upload", "download", "status", "connections", "mode"}

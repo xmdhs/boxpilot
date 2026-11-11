@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/storage"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func (a *App) settingsView(c *ui.Context) {

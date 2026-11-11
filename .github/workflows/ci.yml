@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to create or update (for example, v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out BoxPilot
+        uses: actions/checkout@v4
+        with:
+          path: boxpilot
+      - name: Check out MyGo
+        uses: actions/checkout@v4
+        with:
+          repository: egoist/mygo
+          path: mygo
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: boxpilot/go.mod
+          cache-dependency-path: boxpilot/go.sum
+      - name: Run tests
+        working-directory: boxpilot
+        env:
+          CGO_ENABLED: 0
+        run: go test ./...
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+    steps:
+      - name: Check out BoxPilot
+        uses: actions/checkout@v4
+        with:
+          path: boxpilot
+      - name: Check out MyGo
+        uses: actions/checkout@v4
+        with:
+          repository: egoist/mygo
+          path: mygo
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: boxpilot/go.mod
+          cache-dependency-path: boxpilot/go.sum
+      - name: Compile
+        working-directory: boxpilot
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          go build -tags mygo_noinspector -o "dist/boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+      - name: Stage release binary
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: boxpilot/dist/boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: boxpilot-*
+          path: dist
+          merge-multiple: true
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --generate-notes
+          fi

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"boxpilot/internal/core"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/core"
 )
 
 func (a *App) coreView(c *ui.Context) {

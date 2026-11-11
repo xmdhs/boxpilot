@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"boxpilot/internal/desktop"
+	"github.com/xmdhs/boxpilot/internal/desktop"
 )
 
 func main() {

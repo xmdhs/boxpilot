@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"boxpilot/internal/core"
-	"boxpilot/internal/storage"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/core"
+	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func TestCoreReadyCannotReplaceNewerRemoteSelection(t *testing.T) {

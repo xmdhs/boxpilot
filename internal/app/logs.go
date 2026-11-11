@@ -6,9 +6,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/model"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/model"
 )
 
 func (a *App) visibleLogs() []model.LogEntry {

@@ -117,6 +117,8 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -tags mygo_noinspector -o build/
 
 macOS 签名、公证、DMG 和 Windows 安装器需要相应平台工具及身份，不由这两个命令提供。
 
+GitHub Actions 会在 push 和 pull request 时运行测试，并交叉编译 Linux、Windows、macOS 的 amd64/arm64 版本；常规 CI 不上传构建产物。手动运行 `CI` workflow 时填写 `release_tag`，构建成功后会创建或更新对应的 GitHub Release 并上传六个平台二进制。
+
 若在本会话一样的受限环境中构建，将 Go 缓存放到可写的临时目录：
 
 ```sh
@@ -158,4 +160,4 @@ CGO_ENABLED=0 go run scripts/icon.go
 
 ## 授权
 
-见 `LICENSE` 和 `THIRD_PARTY_NOTICES.md`。本应用采用 GPL-3.0-or-later 兼容授权，保留移植内容的来源与上游名称/关联限制；MyGo 为 MIT；Material Design Icons 为 Apache-2.0。BoxPilot 使用独立名称和应用图标，不暗示与上游有官方关联。
+本应用采用 GNU GPL v3 或更高版本，详见 `LICENSE`。第三方依赖及移植内容的来源和授权见 `THIRD_PARTY_NOTICES.md`。BoxPilot 使用独立名称和应用图标，不暗示与上游有官方关联。

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 func TestFilterConnections(t *testing.T) {

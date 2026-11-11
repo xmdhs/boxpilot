@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"boxpilot/internal/gen/daemon"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 )
 
 func (a *App) tools(c *ui.Context) {
@@ -87,7 +87,7 @@ func (a *App) tools(c *ui.Context) {
 						ui.Spinner(c)
 					}
 				})
-							})
+			})
 			if a.toolError != "" {
 				ui.Text(c, a.toolError).TextColor(a.palette.danger).Selectable()
 			}
@@ -100,7 +100,7 @@ func (a *App) tools(c *ui.Context) {
 					a.line(c, a.t("下载 RPM", "Download RPM"), fmt.Sprint(p.GetDownloadRPM()))
 					a.line(c, a.t("上传 RPM", "Upload RPM"), fmt.Sprint(p.GetUploadRPM()))
 					a.line(c, a.t("已用时间", "Elapsed"), fmt.Sprintf("%.1f s", float64(p.GetElapsedMs())/1000))
-										if p.GetError() != "" {
+					if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)
 					}
 				})
@@ -115,7 +115,7 @@ func (a *App) tools(c *ui.Context) {
 					if !p.GetNatTypeSupported() {
 						a.line(c, a.t("NAT 类型检测", "NAT type detection"), a.t("服务器不支持", "Not supported by server"))
 					}
-										if p.GetError() != "" {
+					if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)
 					}
 				})

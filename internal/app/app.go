@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"boxpilot/internal/api"
-	"boxpilot/internal/core"
-	"boxpilot/internal/desktop"
-	"boxpilot/internal/gen/daemon"
-	"boxpilot/internal/model"
-	"boxpilot/internal/storage"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/internal/api"
+	"github.com/xmdhs/boxpilot/internal/core"
+	"github.com/xmdhs/boxpilot/internal/desktop"
+	"github.com/xmdhs/boxpilot/internal/gen/daemon"
+	"github.com/xmdhs/boxpilot/internal/model"
+	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 const localID = "managed-local"
