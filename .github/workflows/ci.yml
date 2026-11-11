@@ -21,11 +21,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: boxpilot
-      - name: Check out MyGo
-        uses: actions/checkout@v4
-        with:
-          repository: egoist/mygo
-          path: mygo
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -47,7 +42,7 @@ jobs:
             exit 1
           fi
           go vet ./...
-          go tool mygo vet .
+          go run github.com/egoist/mygo/cmd/mygo@latest vet .
       - name: Run race detector
         working-directory: boxpilot
         env:
@@ -83,11 +78,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: boxpilot
-      - name: Check out MyGo
-        uses: actions/checkout@v4
-        with:
-          repository: egoist/mygo
-          path: mygo
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -103,7 +93,7 @@ jobs:
         env:
           CGO_ENABLED: 0
         run: |
-          go tool mygo build \
+          go run github.com/egoist/mygo/cmd/mygo@latest build \
             -platform "${{ matrix.goos }}/${{ matrix.goarch }}" \
             -skip-installer -skip-dmg \
             -o "dist" .

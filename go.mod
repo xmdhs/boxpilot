@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	connectrpc.com/connect v1.21.1
-	github.com/egoist/mygo v0.0.0
+	github.com/egoist/mygo v0.9.0
 	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f
 	golang.org/x/sys v0.48.0
 	google.golang.org/protobuf v1.36.12
@@ -17,7 +17,3 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 )
-
-replace github.com/egoist/mygo => ../mygo
-
-tool github.com/egoist/mygo/cmd/mygo
