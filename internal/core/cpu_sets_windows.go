@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -82,7 +81,7 @@ func setProcessCPUSetIDs(pid int, ids []uint32) error {
 	ok, _, callErr := setProcessDefaultCPUSets.Call(uintptr(handle), idsPointer, uintptr(len(ids)))
 	runtime.KeepAlive(ids)
 	if ok == 0 {
-		if callErr == syscall.Errno(0) {
+		if callErr == windows.ERROR_SUCCESS {
 			callErr = errors.New("SetProcessDefaultCpuSets failed")
 		}
 		return callErr

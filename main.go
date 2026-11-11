@@ -6,10 +6,18 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/xmdhs/boxpilot/internal/app"
+	"github.com/xmdhs/boxpilot/internal/core"
 	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func main() {
+	if handled, exitCode, err := core.RunElevatedCoreHelper(os.Args[1:]); handled {
+		if err != nil {
+			log.Printf("run elevated sing-box supervisor: %v", err)
+			os.Exit(1)
+		}
+		os.Exit(exitCode)
+	}
 	if mygo.IsDev() {
 		mygo.App.SetName("BoxPilot Dev")
 	} else {

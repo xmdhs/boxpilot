@@ -98,9 +98,14 @@ func (m *Manager) SetCPUSetIDs(ctx context.Context, ids []uint32) error {
 		m.mu.Unlock()
 		return ErrNotRunning
 	}
-	pid := r.proc.PID()
+	proc := r.proc
+	pid := proc.PID()
 	m.mu.Unlock()
-	return setProcessCPUSetIDs(pid, append([]uint32(nil), ids...))
+	ids = append([]uint32(nil), ids...)
+	if setter, ok := proc.(interface{ SetCPUSetIDs([]uint32) error }); ok {
+		return setter.SetCPUSetIDs(ids)
+	}
+	return setProcessCPUSetIDs(pid, ids)
 }
 func (m *Manager) finish(r *managedRun, err error) {
 	var cleanupErr error
@@ -164,7 +169,11 @@ func (m *Manager) terminateRun(r *managedRun) {
 		}()
 	})
 }
-func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIReplace bool) error {
+func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIReplace bool, cpuSetChoices ...[]uint32) error {
+	var startupCPUSetIDs []uint32
+	if len(cpuSetChoices) > 0 {
+		startupCPUSetIDs = append([]uint32(nil), cpuSetChoices[0]...)
+	}
 	startup, cancel := context.WithTimeout(ctx, m.startTimeout)
 	r := &managedRun{cancel: cancel, exited: make(chan struct{}), finished: make(chan struct{})}
 	m.mu.Lock()
@@ -244,7 +253,7 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	if err = startup.Err(); err != nil {
 		return fail(err)
 	}
-	proc, err := startCoreProcess(installed.Path, []string{"run", "-c", config}, r.dir, &r.output, m.elevated)
+	proc, err := startCoreProcess(installed.Path, []string{"run", "-c", config}, r.dir, &r.output, m.elevated, startupCPUSetIDs)
 	if err != nil {
 		return fail(err)
 	}
@@ -278,6 +287,11 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 			m.finish(r, err)
 		}
 	}()
+	if !m.elevated && len(startupCPUSetIDs) > 0 {
+		if err := setProcessCPUSetIDs(proc.PID(), startupCPUSetIDs); err != nil {
+			return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
+		}
+	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
 	ticker := time.NewTicker(75 * time.Millisecond)
 	defer ticker.Stop()

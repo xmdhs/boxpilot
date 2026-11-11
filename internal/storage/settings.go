@@ -36,6 +36,7 @@ type Settings struct {
 	CloseToTray      bool     `json:"closeToTray"`
 	OpenAtLogin      bool     `json:"openAtLogin"`
 	ElevateCore      bool     `json:"elevateCore"`
+	CPUCoreChoice    string   `json:"cpuCoreChoice"`
 	Servers          []Server `json:"servers"`
 	ActiveID         string   `json:"activeID"`
 	CorePath         string   `json:"corePath"`
@@ -49,7 +50,7 @@ type Settings struct {
 func Defaults() Settings {
 	return Settings{
 		SchemaVersion: SchemaVersion, Theme: "auto", Accent: "default", Language: "zh-Hans",
-		TrayEnabled: true, MinimizeToTray: true, CloseToTray: true,
+		TrayEnabled: true, MinimizeToTray: true, CloseToTray: true, CPUCoreChoice: "auto",
 		Servers: []Server{}, Cards: []string{}, DisabledCards: []string{},
 		ConnectionFilter: "active", ConnectionSort: "date",
 	}

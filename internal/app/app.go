@@ -101,7 +101,10 @@ func New(root string, s storage.Settings) *App {
 		s = storage.Defaults()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &App{root: root, settings: s, life: ctx, cancel: cancel, page: "overview", secretCache: map[string]string{}, busy: map[string]bool{}, jobs: map[string]context.CancelFunc{}, logLevel: "all", tool: "quality", toolURL: "https://mensura.cdn-apple.com/api/v1/gm/config", toolServer: "stun.voipgate.com:3478", toolRuntime: "20", releaseChannel: "stable", serverRemember: "session", customAccent: s.Accent}
+	a := &App{root: root, settings: s, life: ctx, cancel: cancel, page: "overview", secretCache: map[string]string{}, busy: map[string]bool{}, jobs: map[string]context.CancelFunc{}, logLevel: "all", tool: "quality", toolURL: "https://mensura.cdn-apple.com/api/v1/gm/config", toolServer: "stun.voipgate.com:3478", toolRuntime: "20", releaseChannel: "stable", serverRemember: "session", customAccent: s.Accent, cpuCoreChoice: s.CPUCoreChoice}
+	if a.cpuCoreChoice == "" {
+		a.cpuCoreChoice = "auto"
+	}
 	a.logList.FollowEnd = true
 	a.connectionList.KeepOffset = true
 	return a
@@ -568,6 +571,10 @@ func (a *App) toggleCore() {
 	}
 }
 func (a *App) startCore(replace bool) {
+	if a.busy["cpu-core-detection"] {
+		a.notice = a.t("正在检测 CPU 核心类型，请稍后再启动。", "Detecting CPU core types; try starting the core again in a moment.")
+		return
+	}
 	if a.manager == nil {
 		return
 	}
@@ -583,11 +590,16 @@ func (a *App) startCore(replace bool) {
 		a.page = "core"
 		return
 	}
+	cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()
+	if !validCPUChoice {
+		a.fail(errors.New(a.t("核心类型已不可用，请重启 BoxPilot 更新检测结果。", "The selected CPU core type is no longer available. Restart BoxPilot to refresh detection.")))
+		return
+	}
 	a.activate(localID)
 	selectionGeneration := a.generation
 	var startErr error
 	a.do("core-start", func(ctx context.Context) error {
-		startErr = a.manager.Start(ctx, binary, p, replace)
+		startErr = a.manager.Start(ctx, binary, p, replace, cpuSetIDs)
 		return nil
 	}, func() {
 		if errors.Is(startErr, core.ErrAPIConflict) && !replace {

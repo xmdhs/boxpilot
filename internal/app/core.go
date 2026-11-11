@@ -48,12 +48,14 @@ func (a *App) coreView(c *ui.Context) {
 						for i, value := range values {
 							if value == selected {
 								a.cpuCoreChoice = keys[i]
+								a.settings.CPUCoreChoice = keys[i]
+								a.saveSettings()
 								break
 							}
 						}
 					}
 					ui.PrimaryButton(c, a.t("应用到本机 sing-box", "Apply to local sing-box")).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
-					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；重启核心后需重新应用。管理员模式运行的进程可能因权限不足而无法修改。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not a strict affinity; reapply after restarting the core. Changes may fail if the core runs elevated."))
+					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；选择会记忆，重启后自动应用。管理员模式下，启动核心时的一次 UAC 同时授权管理进程应用该设置。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, the single UAC prompt when starting the core also authorizes the supervisor to apply this setting."))
 				})
 			}
 			a.card(c, a.t("服务", "Service"), func() {
@@ -69,7 +71,7 @@ func (a *App) coreView(c *ui.Context) {
 					ui.Text(c, a.coreState.Error).TextColor(a.palette.danger).FontSize(12).Selectable()
 				}
 				ui.Row(c).Gap(10).Children(func() {
-					ui.PrimaryButton(c, a.t("开始", "Start")).Disabled(a.busy["core-start"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
+					ui.PrimaryButton(c, a.t("开始", "Start")).Disabled(a.busy["core-start"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
 					ui.Button(c, a.t("停止", "Stop")).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
 				})
 				a.label(c, a.t("仅管理本应用启动的进程。退出应用时停止；隐藏窗口时继续运行。", "Only child processes started here are managed. Quit stops the core; hiding keeps it running."))

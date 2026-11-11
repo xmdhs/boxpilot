@@ -56,7 +56,7 @@ type State struct {
 }
 
 type Controller interface {
-	Start(context.Context, string, Profile, bool) error
+	Start(context.Context, string, Profile, bool, ...[]uint32) error
 	Stop(context.Context) error
 	SetCPUSetIDs(context.Context, []uint32) error
 	State() State

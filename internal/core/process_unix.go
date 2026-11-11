@@ -12,7 +12,7 @@ import (
 
 type commandProcess struct{ cmd *exec.Cmd }
 
-func startCoreProcess(path string, args []string, dir string, output io.Writer, elevated bool) (managedProcess, error) {
+func startCoreProcess(path string, args []string, dir string, output io.Writer, elevated bool, _ []uint32) (managedProcess, error) {
 	if elevated {
 		return nil, ErrElevationUnsupported
 	}

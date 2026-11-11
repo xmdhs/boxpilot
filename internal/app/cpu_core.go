@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/xmdhs/boxpilot/internal/core"
@@ -16,6 +17,8 @@ func (a *App) detectCPUCoreGroups() {
 		a.cpuCoreGroups = groups
 		if !includesCPUCoreChoice(groups, a.cpuCoreChoice) {
 			a.cpuCoreChoice = "auto"
+			a.settings.CPUCoreChoice = "auto"
+			a.saveSettings()
 		}
 	})
 }
@@ -32,25 +35,27 @@ func includesCPUCoreChoice(groups []core.CPUCoreGroup, key string) bool {
 	return false
 }
 
+func (a *App) selectedCPUSetIDs() ([]uint32, bool) {
+	if a.cpuCoreChoice == "auto" || len(a.cpuCoreGroups) == 0 {
+		return nil, true
+	}
+	for _, group := range a.cpuCoreGroups {
+		if group.Key == a.cpuCoreChoice {
+			return append([]uint32(nil), group.CPUSetIDs...), true
+		}
+	}
+	return nil, false
+}
+
 func (a *App) applyCPUCoreChoice() {
-	var ids []uint32
-	if a.cpuCoreChoice != "auto" {
-		found := false
-		for _, group := range a.cpuCoreGroups {
-			if group.Key == a.cpuCoreChoice {
-				ids = append(ids, group.CPUSetIDs...)
-				found = true
-				break
-			}
-		}
-		if !found {
-			a.fail(a.t("核心类型已不可用，请重启 BoxPilot 后重试。", "That CPU core type is no longer available. Restart BoxPilot and try again."))
-			return
-		}
+	ids, valid := a.selectedCPUSetIDs()
+	if !valid {
+		a.fail(errors.New(a.t("核心类型已不可用，请重启 BoxPilot 后重试。", "That CPU core type is no longer available. Restart BoxPilot and try again.")))
+		return
 	}
 	manager := a.manager
 	if manager == nil {
-		a.fail(a.t("本机核心控制器不可用。", "The local core controller is unavailable."))
+		a.fail(errors.New(a.t("本机核心控制器不可用。", "The local core controller is unavailable.")))
 		return
 	}
 	a.do("cpu-core-selection", func(ctx context.Context) error {
