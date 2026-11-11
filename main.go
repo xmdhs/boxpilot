@@ -25,6 +25,9 @@ func main() {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}
+	if err := mygo.App.RegisterURLScheme("sing-box"); err != nil {
+		log.Printf("register sing-box URL scheme: %v", err)
+	}
 	root, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +35,9 @@ func main() {
 	settings, loadErr := storage.Load(root)
 	a := app.New(root, settings)
 	mygo.App.WhenReady(func() { a.Open(loadErr) })
+	mygo.App.OnOpenURL(a.OpenURL)
 	mygo.App.OnSecondInstance(func([]string, string) { a.Show() })
+	mygo.App.OnWindowAllClosed(a.WindowAllClosed)
 	mygo.App.OnActivate(func(visible bool) {
 		if !visible {
 			a.Show()

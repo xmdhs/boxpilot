@@ -102,7 +102,7 @@ func TestSavingProfileLocksEditorAndCannotDismiss(t *testing.T) {
 	a.profileContent = core.DefaultConfig()
 	a.busy["save-profile"] = true
 	tt := ui.NewTester(a.view, 1140, 780)
-	for _, label := range []string{"Configuration name", "Configuration content"} {
+	for _, label := range []string{"Name", "Configuration"} {
 		access, ok := tt.Access(label)
 		if !ok || !access.Disabled {
 			t.Fatalf("%s not locked during save", label)
@@ -124,13 +124,13 @@ func TestUnsavedConfigurationConfirmationOnTop(t *testing.T) {
 	a.profileName = "Config"
 	a.profileContent = core.DefaultConfig()
 	tt := ui.NewTester(a.view, 1140, 780)
-	if err := tt.Click("Close editor"); err != nil {
+	if err := tt.Click("Close"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.confirmOpen {
 		t.Fatal("missing discard confirmation")
 	}
-	if err := tt.Click("Confirm"); err != nil {
+	if err := tt.Click("Discard"); err != nil {
 		t.Fatal(err)
 	}
 	if a.profileEditor || a.profileDirty {

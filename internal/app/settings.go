@@ -19,53 +19,95 @@ func (a *App) settingsView(c *ui.Context) {
 	a.pageTitle(c, "设置", "Settings", nil)
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(18).Children(func() {
-			a.card(c, a.t("外观与语言", "Appearance & language"), func() {
+			a.card(c, a.t("外观", "Appearance"), func() {
 				a.setting(c, a.t("主题", "Theme"), "", func() {
-					if ui.Select(c, &a.settings.Theme, []string{"auto", "light", "dark"}).Width(150).Label(a.t("主题", "Theme")).Changed() {
-						if a.win != nil {
-							a.applyAppearance()
+					themeValues := []string{"auto", "light", "dark"}
+					themeOptions := []string{a.t("跟随系统", "System"), a.t("浅色", "Light"), a.t("深色", "Dark")}
+					themeOption := themeOptions[0]
+					for i, value := range themeValues {
+						if a.settings.Theme == value {
+							themeOption = themeOptions[i]
 						}
-						a.saveSettings()
+					}
+					if ui.Select(c, &themeOption, themeOptions).Width(150).Label(a.t("主题", "Theme")).Changed() {
+						for i, option := range themeOptions {
+							if themeOption == option {
+								a.settings.Theme = themeValues[i]
+								if a.win != nil {
+									a.applyAppearance()
+								}
+								a.saveSettings()
+								break
+							}
+						}
 					}
 				})
-				a.setting(c, a.t("强调色", "Accent"), "", func() {
-					choice := a.settings.Accent
-					if strings.HasPrefix(choice, "#") {
-						choice = "custom"
+				accentValues := []string{"default", "blue", "purple", "pink", "red", "orange", "yellow", "green", "graphite", "custom"}
+				accentOptions := []string{
+					a.t("默认", "Default"), a.t("蓝色", "Blue"), a.t("紫色", "Purple"), a.t("粉色", "Pink"),
+					a.t("红色", "Red"), a.t("橙色", "Orange"), a.t("黄色", "Yellow"), a.t("绿色", "Green"),
+					a.t("石墨色", "Graphite"), a.t("自定义颜色", "Custom color"),
+				}
+				accentValue := a.settings.Accent
+				if strings.HasPrefix(accentValue, "#") {
+					accentValue = "custom"
+				}
+				if !includes(accentValues, accentValue) {
+					accentValue = "default"
+				}
+				accentOption := accentOptions[0]
+				for i, value := range accentValues {
+					if value == accentValue {
+						accentOption = accentOptions[i]
 					}
-					if ui.Select(c, &choice, accents).Width(150).Label(a.t("强调色", "Accent")).Changed() {
-						if choice == "custom" {
-							a.customAccent = "#007aff"
-							a.settings.Accent = a.customAccent
-						} else {
-							a.settings.Accent = choice
+				}
+				a.setting(c, a.t("自定义颜色", "Custom color"), "", func() {
+					if ui.Select(c, &accentOption, accentOptions).Width(150).Label(a.t("自定义颜色", "Custom color")).Changed() {
+						for i, option := range accentOptions {
+							if accentOption == option {
+								accentValue = accentValues[i]
+								if accentValue == "custom" {
+									a.customAccent = "#007aff"
+									a.settings.Accent = a.customAccent
+								} else {
+									a.settings.Accent = accentValue
+								}
+								a.saveSettings()
+								break
+							}
 						}
-						a.saveSettings()
 					}
 				})
 				if strings.HasPrefix(a.settings.Accent, "#") {
 					color := ui.Hex(a.settings.Accent)
-					if ui.ColorPicker(c, &color).Label(a.t("自定义强调色", "Custom accent")).Changed() {
+					if ui.ColorPicker(c, &color).Label(a.t("自定义颜色", "Custom color")).Changed() {
 						a.settings.Accent = fmt.Sprintf("#%02x%02x%02x", color.R, color.G, color.B)
 						a.saveSettings()
 					}
 				}
-				a.setting(c, a.t("界面语言", "Language"), "", func() {
-					language := a.settings.Language
-					if language == "" {
-						language = "zh-Hans"
+				a.setting(c, a.t("语言", "Language"), "", func() {
+					languageValues := []string{"zh-Hans", "en"}
+					languageOptions := []string{"简体中文", "English"}
+					languageOption := languageOptions[0]
+					if a.settings.Language == "en" {
+						languageOption = languageOptions[1]
 					}
-					if ui.Select(c, &language, []string{"zh-Hans", "en"}).Width(150).Label(a.t("界面语言", "Language")).Changed() {
-						a.settings.Language = language
-						a.saveSettings()
-						if a.settings.ActiveID != "" {
-							a.activate(a.settings.ActiveID)
+					if ui.Select(c, &languageOption, languageOptions).Width(150).Label(a.t("语言", "Language")).Changed() {
+						for i, option := range languageOptions {
+							if languageOption == option {
+								a.settings.Language = languageValues[i]
+								a.saveSettings()
+								if a.settings.ActiveID != "" {
+									a.activate(a.settings.ActiveID)
+								}
+								break
+							}
 						}
 					}
 				})
 			})
-			a.card(c, a.t("桌面与托盘", "Desktop & tray"), func() {
-				a.setting(c, a.t("启用托盘", "Enable tray"), a.t("不可用时保留普通窗口行为", "Normal window behavior is kept if unavailable"), func() {
+			a.card(c, a.t("应用", "App"), func() {
+				a.setting(c, a.t("启用托盘", "Enable tray"), "", func() {
 					if ui.Switch(c, &a.settings.TrayEnabled).Label(a.t("启用托盘", "Enable tray")).Changed() {
 						a.configureTray()
 						a.saveSettings()
@@ -77,13 +119,13 @@ func (a *App) settingsView(c *ui.Context) {
 						a.saveSettings()
 					}
 				})
-				a.setting(c, a.t("关闭窗口时隐藏", "Close to tray"), a.t("通过托盘或“退出应用”完全退出", "Quit explicitly from the tray or sidebar"), func() {
-					if ui.Switch(c, &a.settings.CloseToTray).Label(a.t("关闭窗口时隐藏", "Close to tray")).Changed() {
+				a.setting(c, a.t("将托盘保留在后台", "Keep Tray in Background"), "", func() {
+					if ui.Switch(c, &a.settings.CloseToTray).Label(a.t("将托盘保留在后台", "Keep Tray in Background")).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
-				a.setting(c, a.t("开机启动", "Open at login"), a.t("仅启动面板，不自动启动网络配置", "Starts the panel, not a network configuration"), func() {
+				a.setting(c, a.t("开机启动", "Open at login"), "", func() {
 					enabled := a.settings.OpenAtLogin
 					if ui.Switch(c, &enabled).Disabled(a.busy["login"]).Label(a.t("开机启动", "Open at login")).Changed() {
 						next := enabled
@@ -97,16 +139,13 @@ func (a *App) settingsView(c *ui.Context) {
 					ui.Row(c.Key(s.ID)).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 						ui.Column(c).Grow(1).Gap(4).Children(func() { ui.Text(c, s.Name); a.label(c, s.URL).Selectable() })
 						ui.Button(c, a.t("连接", "Connect")).OnClick(func() { a.activate(s.ID); a.page = "overview" })
-						ui.Button(c, a.t("编辑", "Edit")).OnClick(func() { a.editServer(s.ID) })
+						ui.Button(c, a.t("编辑服务器", "Edit Server")).OnClick(func() { a.editServer(s.ID) })
 					})
 				}
-				ui.Button(c, a.t("添加服务器", "Add server")).OnClick(func() { a.editServer("") })
+				ui.Button(c, a.t("新建服务器", "New Server")).OnClick(func() { a.editServer("") })
 			})
 			a.card(c, a.t("关于", "About"), func() {
 				ui.Text(c, "BoxPilot 0.1.0")
-				a.label(c, a.t("独立原生客户端 · GPL-3.0-or-later · MyGo (MIT)", "Independent native client · GPL-3.0-or-later · MyGo (MIT)"))
-				a.label(c, a.t("兼容 sing-box 1.14+ StartedService API；不是 Clash REST 客户端。", "Uses sing-box 1.14+ StartedService API, not Clash REST."))
-				a.label(c, a.t("本机核心默认不提权，不自动修改系统代理或安装系统服务。", "No elevation, automatic system proxy changes, or system service installation."))
 			})
 		})
 	})
@@ -119,6 +158,7 @@ func (a *App) editServer(id string) {
 	a.serverName = ""
 	a.serverURL = "http://127.0.0.1:9090"
 	a.serverSecret = ""
+	a.serverSecretRequired = false
 	a.serverRemember = "session"
 	a.serverHTTPConsent = false
 	a.serverFileConsent = false
@@ -155,17 +195,22 @@ func (a *App) editServer(id string) {
 }
 func (a *App) serverForm(c *ui.Context) {
 	ui.DialogBase(c, &a.serverDialog, func(back, panel ui.Element) {
+		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
-		ui.Text(c, a.t("连接服务器", "Connect to server")).FontSize(20).Bold()
+		serverTitle := a.t("新建服务器", "New Server")
+		if a.serverID != "" {
+			serverTitle = a.t("编辑服务器", "Edit Server")
+		}
+		ui.Text(c, serverTitle).FontSize(20).Bold()
 		a.field(c, a.t("名称", "Name"), func() {
-			ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("服务器名称", "Server name"))
+			ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("名称", "Name"))
 		})
-		a.field(c, "API URL", func() { ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label("API URL") })
+		a.field(c, a.t("URL", "URL"), func() { ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label(a.t("URL", "URL")) })
 		a.field(c, a.t("密钥", "Secret"), func() {
 			ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(a.t("密钥", "Secret"))
 		})
-		a.field(c, a.t("密钥存储", "Secret storage"), func() {
-			ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(a.t("密钥存储", "Secret storage"))
+		a.field(c, a.t("密钥", "Secret"), func() {
+			ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(a.t("密钥", "Secret"))
 		})
 		a.label(c, a.t("session：仅本次；keychain：系统凭据库；file：明文文件。", "session: this session; keychain: system credential store; file: plaintext."))
 		if a.serverRemember == "file" {
@@ -177,11 +222,11 @@ func (a *App) serverForm(c *ui.Context) {
 		}
 		ui.Row(c).Gap(10).Wrap().Children(func() {
 			if a.serverID != "" {
-				ui.Button(c, a.t("删除服务器", "Delete server")).TextColor(a.palette.danger).OnClick(func() {
-					a.confirm(a.t("删除服务器？", "Delete server?"), a.serverName, func() { a.deleteServer() })
+				ui.Button(c, a.t("删除", "Delete")).TextColor(a.palette.danger).OnClick(func() {
+					a.confirm(a.t("删除", "Delete"), a.serverName, func() { a.deleteServer() })
 				})
 			}
-			ui.Button(c, a.t("测试连接", "Test connection")).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
+			ui.Button(c, a.t("连接", "Connect")).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
 			ui.Spacer(c)
 			ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.serverDialog = false })
 			ui.PrimaryButton(c, a.t("保存", "Save")).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
@@ -237,7 +282,7 @@ func (a *App) probeServer() {
 		}
 		defer client.Close()
 		return client.Probe(ctx)
-	}, func() { a.notice = a.t("API 连接成功", "API connection succeeded") })
+	}, func() { a.notice = a.t("可用", "Available") })
 }
 func (a *App) saveServer() {
 	server, err := a.formServer()

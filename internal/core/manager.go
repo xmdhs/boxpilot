@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
 )
 
 type managedRun struct {
-	cmd                       *exec.Cmd
+	proc                      managedProcess
 	output                    boundedOutput
 	secret                    string
 	dir                       string
@@ -38,10 +37,19 @@ type Manager struct {
 	probe        func(context.Context, string, string) error
 	startTimeout time.Duration
 	stopTimeout  time.Duration
+	elevated     bool
 }
 
 func NewManager(root string, publish func(State)) *Manager {
-	return &Manager{root: root, publish: publish, state: State{Phase: "stopped"}, probe: probeAPI, startTimeout: 30 * time.Second, stopTimeout: 3 * time.Second}
+	return newManager(root, publish, false)
+}
+
+func NewElevatedManager(root string, publish func(State)) *Manager {
+	return newManager(root, publish, true)
+}
+
+func newManager(root string, publish func(State), elevated bool) *Manager {
+	return &Manager{root: root, publish: publish, state: State{Phase: "stopped"}, probe: probeAPI, startTimeout: 30 * time.Second, stopTimeout: 3 * time.Second, elevated: elevated}
 }
 func (m *Manager) snapshotLocked() State {
 	s := m.state
@@ -82,13 +90,10 @@ func (m *Manager) Running() bool { m.mu.Lock(); defer m.mu.Unlock(); return m.st
 func (m *Manager) finish(r *managedRun, err error) {
 	var cleanupErr error
 	if r.dir != "" {
-		// Persist only the latest bounded, redacted diagnostic snapshot. Runtime
-		// credentials/configuration are removed after the process has been reaped.
-		if logErr := atomicWrite(filepath.Join(filepath.Dir(r.dir), "last.log"), []byte(redact(r.output.String(), r.secret))); logErr != nil {
-			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("save core diagnostic: %w", logErr))
-		}
+		// Runtime credentials, configurations, and diagnostics exist only while
+		// the process is running. Nothing is persisted as a log file.
 		if removeErr := os.RemoveAll(r.dir); removeErr != nil {
-			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("remove runtime configuration: %w", removeErr))
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("remove runtime files: %w", removeErr))
 		}
 	}
 	m.mu.Lock()
@@ -119,9 +124,9 @@ func (m *Manager) finish(r *managedRun, err error) {
 }
 func (m *Manager) terminateRun(r *managedRun) {
 	m.mu.Lock()
-	cmd := r.cmd
+	proc := r.proc
 	m.mu.Unlock()
-	if cmd == nil {
+	if proc == nil {
 		return
 	}
 	r.terminate.Do(func() {
@@ -132,14 +137,14 @@ func (m *Manager) terminateRun(r *managedRun) {
 				return
 			default:
 			}
-			_ = gracefulTerminate(cmd.Process)
+			_ = proc.GracefulStop()
 			timer := time.NewTimer(m.stopTimeout)
 			defer timer.Stop()
 			select {
 			case <-r.exited:
 				return
 			case <-timer.C:
-				_ = cmd.Process.Kill()
+				_ = proc.Kill()
 			}
 		}()
 	})
@@ -160,7 +165,7 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	defer cancel()
 	fail := func(err error) error {
 		m.mu.Lock()
-		spawned := r.cmd != nil
+		spawned := r.proc != nil
 		m.mu.Unlock()
 		if spawned {
 			m.terminateRun(r)
@@ -224,28 +229,28 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	if err = startup.Err(); err != nil {
 		return fail(err)
 	}
-	cmd := exec.Command(installed.Path, "run", "-c", config)
-	cmd.Dir = r.dir
-	cmd.Stdout = &r.output
-	cmd.Stderr = &r.output
-	cmd.WaitDelay = time.Second
-	configureProcess(cmd)
+	proc, err := startCoreProcess(installed.Path, []string{"run", "-c", config}, r.dir, &r.output, m.elevated)
+	if err != nil {
+		return fail(err)
+	}
 	m.mu.Lock()
+	r.proc = proc
 	if startup.Err() != nil || r.stopping {
+		m.mu.Unlock()
+		_ = proc.Kill()
+		err = proc.Wait()
+		m.mu.Lock()
+		r.waitErr = err
+		close(r.exited)
 		m.mu.Unlock()
 		return fail(context.Canceled)
 	}
 	m.state.Phase = "starting"
-	if err = cmd.Start(); err != nil {
-		m.mu.Unlock()
-		return fail(err)
-	}
-	r.cmd = cmd
-	m.state.PID = cmd.Process.Pid
+	m.state.PID = proc.PID()
 	m.notifyLocked()
 	m.mu.Unlock()
 	go func() {
-		err := cmd.Wait()
+		err := proc.Wait()
 		m.mu.Lock()
 		r.waitErr = err
 		close(r.exited)

@@ -14,8 +14,6 @@ type palette struct {
 	theme                                                                                                   *ui.Theme
 }
 
-var accents = []string{"default", "blue", "purple", "pink", "red", "orange", "yellow", "green", "graphite", "custom"}
-
 func makePalette(dark bool, accent string) palette {
 	p := palette{dark: dark, bg: ui.Hex("#fafafa"), surface: ui.Hex("#f0f0f0"), card: ui.Hex("#ffffff"), text: ui.Hex("#1a1a1a"), muted: ui.Hex("#6e6e6e"), faint: ui.Hex("#9c9c9c"), border: ui.RGBA(0, 0, 0, .09), hover: ui.RGBA(0, 0, 0, .05), good: ui.Hex("#3d8168"), medium: ui.Hex("#a8742f"), bad: ui.Hex("#c25e32"), danger: ui.Hex("#ab2b3f")}
 	if dark {
@@ -112,7 +110,7 @@ func (a *App) field(c *ui.Context, label string, fn func()) {
 	ui.Column(c).Gap(6).FillWidth().Children(func() { ui.Text(c, label).FontSize(12).Bold(); fn() })
 }
 func (a *App) setting(c *ui.Context, title, hint string, fn func()) {
-	ui.Row(c).FillWidth().PaddingY(12).Gap(18).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().PaddingY(8).Gap(18).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).Gap(3).Children(func() {
 			ui.Text(c, title)
 			if hint != "" {
@@ -165,12 +163,19 @@ func (a *App) sparkline(c *ui.Context, data []float64) {
 	})
 }
 func (a *App) iconButton(c *ui.Context, key, label, glyph string, fn func()) {
-	b := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).Size(30, 30).Radius(8)
+	a.iconButtonDisabled(c, key, label, glyph, false, fn)
+}
+
+func (a *App) iconButtonDisabled(c *ui.Context, key, label, glyph string, disabled bool, fn func()) {
+	b := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).Size(30, 30).Radius(8).Disabled(disabled)
 	if b.Hovered() {
 		b.Background(a.palette.hover)
 	}
 	b.Children(func() {
-		name := map[string]string{"×": "close", "+": "add", "⚙": "tune", "☰": "menu", "↻": "sync", "↑": "expand_less", "↓": "expand_more"}[glyph]
+		name := map[string]string{"×": "close", "+": "add", "⚙": "tune", "☰": "menu", "↻": "sync", "↑": "expand_less", "↓": "expand_more", "speed": "speed"}[glyph]
+		if name == "" {
+			name = glyph
+		}
 		if icon := icons[name]; icon != nil {
 			ui.Icon(c, icon).Size(17, 17)
 		} else {

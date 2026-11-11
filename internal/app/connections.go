@@ -13,34 +13,61 @@ import (
 
 func (a *App) connections(c *ui.Context) {
 	a.pageTitle(c, "连接", "Connections", func() {
-		ui.Button(c, a.t("关闭全部", "Close All")).Disabled(a.client == nil).OnClick(func() {
-			a.confirm(a.t("关闭全部连接？", "Close all connections?"), a.t("当前实例上的活动连接都会被关闭。", "All active connections on the selected instance will be closed."), func() {
+		ui.Button(c, a.t("关闭所有连接", "Close All Connections")).Disabled(a.client == nil).OnClick(func() {
+			a.confirm(a.t("关闭所有连接", "Close All Connections"), "", func() {
 				a.rpc("close-all", func(ctx context.Context, client *api.Client) error { return client.CloseAllConnections(ctx) })
 			})
 		})
 	})
+	filter := a.settings.ConnectionFilter
+	if filter == "" {
+		filter = "active"
+	}
 	ui.Row(c).FillWidth().Gap(12).Children(func() {
-		ui.SearchField(c.Key("connection-query"), &a.connectionQuery).Grow(1).Label(a.t("搜索连接", "Search connections"))
-		filter := a.settings.ConnectionFilter
-		if filter == "" {
-			filter = "active"
+		ui.SearchField(c.Key("connection-query"), &a.connectionQuery).Grow(1).Label(a.t("搜索", "Search"))
+		filterValues := []string{"active", "closed", "all"}
+		filterOptions := []string{a.t("活动", "Active"), a.t("已关闭", "Closed"), a.t("全部", "All")}
+		filterOption := filterOptions[0]
+		for i, value := range filterValues {
+			if filter == value {
+				filterOption = filterOptions[i]
+			}
 		}
-		if ui.Select(c.Key("connection-filter"), &filter, []string{"active", "closed", "all"}).Width(100).Label(a.t("连接状态", "Connection state")).Changed() {
-			a.settings.ConnectionFilter = filter
-			a.saveSettings()
+		if ui.Select(c.Key("connection-filter"), &filterOption, filterOptions).Width(100).Label(a.t("状态", "State")).Changed() {
+			for i, option := range filterOptions {
+				if filterOption == option {
+					filter = filterValues[i]
+					a.settings.ConnectionFilter = filter
+					a.saveSettings()
+					break
+				}
+			}
 		}
+		sortValues := []string{"date", "traffic", "trafficTotal"}
+		sortOptions := []string{a.t("按时间", "By date"), a.t("按速率", "By traffic"), a.t("按流量", "By traffic total")}
 		sort := a.settings.ConnectionSort
 		if sort == "" {
 			sort = "date"
 		}
-		if ui.Select(c.Key("connection-sort"), &sort, []string{"date", "traffic", "trafficTotal"}).Width(125).Label(a.t("连接排序", "Sort connections")).Changed() {
-			a.settings.ConnectionSort = sort
-			a.saveSettings()
+		sortOption := sortOptions[0]
+		for i, value := range sortValues {
+			if sort == value {
+				sortOption = sortOptions[i]
+			}
+		}
+		if ui.Select(c.Key("connection-sort"), &sortOption, sortOptions).Width(125).Label(a.t("排序", "Sort By")).Changed() {
+			for i, option := range sortOptions {
+				if sortOption == option {
+					sort = sortValues[i]
+					a.settings.ConnectionSort = sort
+					a.saveSettings()
+					break
+				}
+			}
 		}
 	})
 	a.unsupported(c, "connections")
 	rows := model.FilterConnections(a.snapshot.Connections, a.connectionQuery, a.settings.ConnectionFilter, a.settings.ConnectionSort)
-	a.label(c, fmt.Sprintf(a.t("%d 条连接 · 支持 network: / inbound: / outbound: 等筛选", "%d connections · network: / inbound: / outbound: filters supported"), len(rows)))
 	a.connectionList.Key = func(i int) any { return rows[i].Connection.GetId() }
 	ui.List(c.Key("connections-list"), &a.connectionList, len(rows), func(i int) {
 		row := rows[i]
@@ -65,11 +92,21 @@ func (a *App) connections(c *ui.Context) {
 					}
 				})
 				ui.Row(c).Gap(20).Children(func() {
-					ui.Text(c, "↑ "+model.FormatBytes(row.UplinkRate)+"/s   ↓ "+model.FormatBytes(row.DownlinkRate)+"/s").Font("monospace").FontSize(11).Grow(1)
+					ui.Row(c).Gap(4).AlignItems(ui.Center).Grow(1).Children(func() {
+						ui.Icon(c, icons["upload"]).Size(12, 12).TextColor(a.palette.muted)
+						ui.Text(c, model.FormatBytes(row.UplinkRate)+"/s").Font("monospace").FontSize(11)
+						ui.Icon(c, icons["download"]).Size(12, 12).TextColor(a.palette.muted)
+						ui.Text(c, model.FormatBytes(row.DownlinkRate)+"/s").Font("monospace").FontSize(11)
+					})
 					a.label(c, conn.GetInboundType()+" / "+conn.GetInbound()).SingleLine()
 				})
 				ui.Row(c).Gap(16).Children(func() {
-					a.label(c, "↑ "+model.FormatBytes(row.UplinkTotal)+"   ↓ "+model.FormatBytes(row.DownlinkTotal)).Font("monospace").Grow(1)
+					ui.Row(c).Gap(4).AlignItems(ui.Center).Grow(1).Children(func() {
+						ui.Icon(c, icons["upload"]).Size(12, 12).TextColor(a.palette.muted)
+						a.label(c, model.FormatBytes(row.UplinkTotal)).Font("monospace")
+						ui.Icon(c, icons["download"]).Size(12, 12).TextColor(a.palette.muted)
+						a.label(c, model.FormatBytes(row.DownlinkTotal)).Font("monospace")
+					})
 					a.label(c, conn.GetOutbound()).SingleLine()
 				})
 			})
@@ -77,7 +114,17 @@ func (a *App) connections(c *ui.Context) {
 		b.OnClick(func() { a.detailID = conn.GetId() })
 	}).Grow(1).Gap(8)
 	if len(rows) == 0 {
-		a.label(c, a.t("暂无匹配连接", "No matching connections"))
+		empty := a.t("暂无连接", "No connections")
+		switch filter {
+		case "active":
+			empty = a.t("暂无活动连接", "No active connections")
+		case "closed":
+			empty = a.t("暂无已关闭连接", "No closed connections")
+		}
+		if strings.TrimSpace(a.connectionQuery) != "" {
+			empty = a.t("没有匹配的连接", "No matching connections")
+		}
+		a.label(c, empty)
 	}
 	if a.detailID != "" {
 		for _, row := range a.snapshot.Connections {
@@ -95,22 +142,22 @@ func (a *App) connectionDetail(c *ui.Context, row model.ConnectionRow) {
 		panelWidth = width
 	}
 	ui.Overlay(c, func() {
-		back := ui.Row(c).Absolute().Top(0).Bottom(0).Left(0).Right(0).Justify(ui.End).Background(ui.RGBA(0, 0, 0, .28)).Modal()
+		back := ui.Row(c).Absolute().Top(0).Bottom(0).Left(0).Right(0).Justify(ui.End).Background(ui.RGBA(0, 0, 0, .32)).Modal()
 		back.Children(func() {
-			panel := ui.Column(c).Width(panelWidth).FillHeight().Padding(24).Gap(16).Background(a.palette.bg).Role(ui.RoleDialog).Label(a.t("连接详情", "Connection details"))
+			panel := ui.Column(c).Width(panelWidth).FillHeight().Padding(24).Gap(16).Background(a.palette.bg).Role(ui.RoleDialog).Label(a.t("连接", "Connection"))
 			panel.Children(func() {
 				conn := row.Connection
 				ui.Row(c).FillWidth().Children(func() {
 					ui.Text(c, a.t("连接详情", "Connection")).FontSize(22).Bold().Grow(1)
-					a.iconButton(c, "close-detail", a.t("关闭详情", "Close details"), "×", func() { a.detailID = "" })
+					a.iconButton(c, "close-detail", a.t("关闭", "Close"), "×", func() { a.detailID = "" })
 				})
 				ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 					ui.Column(c).FillWidth().Gap(12).Children(func() {
 						a.label(c, conn.GetId()).Selectable()
 						a.card(c, a.t("流量", "Traffic"), func() {
-							a.line(c, a.t("创建时间", "Created"), time.UnixMilli(conn.GetCreatedAt()).Format("2006-01-02 15:04:05"))
-							a.line(c, a.t("上传", "Uplink"), model.FormatBytes(row.UplinkTotal))
-							a.line(c, a.t("下载", "Downlink"), model.FormatBytes(row.DownlinkTotal))
+							a.line(c, a.t("创建时间", "Created at"), time.UnixMilli(conn.GetCreatedAt()).Format("2006-01-02 15:04:05"))
+							a.line(c, a.t("上行", "Uplink"), model.FormatBytes(row.UplinkTotal))
+							a.line(c, a.t("下行", "Downlink"), model.FormatBytes(row.DownlinkTotal))
 							if row.ClosedAt > 0 {
 								a.line(c, a.t("关闭时间", "Closed"), time.UnixMilli(row.ClosedAt).Format("2006-01-02 15:04:05"))
 							}
@@ -119,23 +166,22 @@ func (a *App) connectionDetail(c *ui.Context, row model.ConnectionRow) {
 							a.line(c, a.t("入站", "Inbound"), conn.GetInbound())
 							a.line(c, a.t("入站类型", "Inbound type"), conn.GetInboundType())
 							a.line(c, a.t("网络", "Network"), conn.GetNetwork())
-							a.line(c, a.t("源地址", "Source"), conn.GetSource())
+							a.line(c, a.t("源", "Source"), conn.GetSource())
 							a.line(c, a.t("目标地址", "Destination"), conn.GetDestination())
 							a.line(c, a.t("域名", "Domain"), conn.GetDomain())
 							a.line(c, a.t("协议", "Protocol"), conn.GetProtocol())
-							a.line(c, a.t("规则", "Rule"), conn.GetRule())
+							a.line(c, a.t("匹配规则", "Match rule"), conn.GetRule())
 							a.line(c, a.t("出站", "Outbound"), conn.GetOutbound())
-							a.line(c, a.t("出站链路", "Chain"), strings.Join(conn.GetChainList(), " → "))
+							a.line(c, a.t("链", "Chain"), strings.Join(conn.GetChainList(), " → "))
 						})
 						if process := conn.GetProcessInfo(); process != nil {
 							a.card(c, a.t("进程", "Process"), func() {
 								a.line(c, "PID", fmt.Sprint(process.GetProcessId()))
-								a.line(c, a.t("路径", "Path"), process.GetProcessPath())
 								a.line(c, a.t("用户", "User"), process.GetUserName())
 							})
 						}
 						if row.ClosedAt == 0 {
-							ui.Button(c, a.t("关闭此连接", "Close Connection")).TextColor(a.palette.danger).OnClick(func() {
+							ui.Button(c, a.t("关闭连接", "Close connection")).TextColor(a.palette.danger).OnClick(func() {
 								id := conn.GetId()
 								a.rpc("close-"+id, func(ctx context.Context, client *api.Client) error { return client.CloseConnection(ctx, id) })
 								a.detailID = ""

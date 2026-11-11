@@ -54,7 +54,7 @@ func TestNavigationAndCompactMenu(t *testing.T) {
 		t.Fatalf("logs page: %q", tt.Texts())
 	}
 	tt.SetSize(600, 760)
-	if err := tt.Click("Navigation"); err != nil {
+	if err := tt.Click("Toggle navigation"); err != nil {
 		t.Fatal(err)
 	}
 	if !a.compactMenu {
@@ -69,7 +69,7 @@ func TestConnectionsSearchAndDetails(t *testing.T) {
 	a := fixture(t)
 	a.page = "connections"
 	tt := ui.NewTester(a.view, 1140, 780)
-	if err := tt.Click("Search connections"); err != nil {
+	if err := tt.Click("Search"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Type("network:udp")
@@ -93,7 +93,7 @@ func TestLogPauseFreezesBoundedSnapshot(t *testing.T) {
 	a := fixture(t)
 	a.page = "logs"
 	tt := ui.NewTester(a.view, 1140, 780)
-	if err := tt.Click("Pause"); err != nil {
+	if err := tt.Click("Pause scrolling"); err != nil {
 		t.Fatal(err)
 	}
 	a.snapshot.Logs = append(a.snapshot.Logs, model.LogEntry{ID: 3, Level: daemon.LogLevel_INFO, Message: "new message"})
@@ -101,7 +101,7 @@ func TestLogPauseFreezesBoundedSnapshot(t *testing.T) {
 	if tt.HasText("new message") {
 		t.Fatal("paused view changed")
 	}
-	if err := tt.Click("Resume"); err != nil {
+	if err := tt.Click("Resume scrolling"); err != nil {
 		t.Fatal(err)
 	}
 	if !tt.HasText("new message") {
@@ -162,6 +162,57 @@ func TestThemeAndNarrowLayouts(t *testing.T) {
 		}
 	}
 }
+func TestModalBackdropDimsWindow(t *testing.T) {
+	a := fixture(t)
+	tt := ui.NewTester(a.view, 1140, 780)
+	before, _, _, _ := tt.Image().At(10, 10).RGBA()
+	a.serverDialog = true
+	tt.Frame()
+	after, _, _, _ := tt.Image().At(10, 10).RGBA()
+	if after >= before {
+		t.Fatalf("modal backdrop did not dim the window: before=%d after=%d", before, after)
+	}
+}
+
+func TestGroupExpansionOverrideRendersImmediatelyAndConfirms(t *testing.T) {
+	a := fixture(t)
+	a.page = "groups"
+	group := a.snapshot.Groups[0]
+	a.groupExpandOverrides = map[string]groupExpandOverride{
+		group.GetTag(): {expanded: false, generation: a.generation},
+	}
+
+	tt := ui.NewTester(a.view, 1140, 780)
+	if !tt.HasText("Expand") || tt.HasText("Tokyo") {
+		t.Fatalf("optimistic collapse was not rendered: %q", tt.Texts())
+	}
+
+	// An older snapshot must not discard a pending UI choice.
+	a.confirmGroupExpansion(a.snapshot.Groups)
+	if a.groupExpanded(group) {
+		t.Fatal("stale snapshot overrode the pending collapse")
+	}
+
+	group.IsExpand = false
+	a.confirmGroupExpansion(a.snapshot.Groups)
+	if _, ok := a.groupExpandOverrides[group.GetTag()]; ok {
+		t.Fatal("matching snapshot did not confirm collapse")
+	}
+}
+
+func TestGroupExpansionRollbackOnlyRemovesMatchingRequest(t *testing.T) {
+	a := fixture(t)
+	a.groupExpandOverrides = map[string]groupExpandOverride{"Proxy": {expanded: false, generation: 3}}
+	a.rollbackGroupExpansion("Proxy", 2, false)
+	if _, ok := a.groupExpandOverrides["Proxy"]; !ok {
+		t.Fatal("stale RPC failure removed a newer override")
+	}
+	a.rollbackGroupExpansion("Proxy", 3, false)
+	if _, ok := a.groupExpandOverrides["Proxy"]; ok {
+		t.Fatal("matching RPC failure did not roll back the override")
+	}
+}
+
 func TestNativeSnapshots(t *testing.T) {
 	dir := os.Getenv("BOXPILOT_SCREENSHOTS")
 	if dir == "" {

@@ -19,23 +19,62 @@ func (a *App) tools(c *ui.Context) {
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			a.card(c, a.t("测试配置", "Test configuration"), func() {
-				a.label(c, a.t("测试由所选实例发起；网络质量测试会消耗流量。", "Tests run on the selected instance. Network quality tests consume traffic."))
 				if a.tool == "quality" {
-					a.field(c, a.t("配置 URL", "Configuration URL"), func() { ui.TextInput(c.Key("quality-url"), &a.toolURL).FillWidth().Label("Configuration URL") })
+					a.field(c, a.t("配置 URL", "Configuration URL"), func() {
+						ui.TextInput(c.Key("quality-url"), &a.toolURL).FillWidth().Label(a.t("配置 URL", "Configuration URL"))
+					})
 					ui.Row(c).Gap(16).Wrap().Children(func() {
-						a.field(c, a.t("最长时间（秒）", "Max runtime (seconds)"), func() { ui.Select(c, &a.toolRuntime, []string{"20", "30", "60"}).Width(100) })
+						runtimeValues := []string{"20", "30", "60"}
+						runtimeOptions := []string{
+							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "20"),
+							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "30"),
+							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "60"),
+						}
+						runtimeOption := runtimeOptions[0]
+						for i, value := range runtimeValues {
+							if value == a.toolRuntime {
+								runtimeOption = runtimeOptions[i]
+							}
+						}
+						a.field(c, a.t("最大运行时间", "Max runtime"), func() {
+							if ui.Select(c, &runtimeOption, runtimeOptions).Width(100).Changed() {
+								for i, option := range runtimeOptions {
+									if runtimeOption == option {
+										a.toolRuntime = runtimeValues[i]
+										break
+									}
+								}
+							}
+						})
 						ui.Checkbox(c, &a.toolSerial, a.t("串行", "Serial"))
 						ui.Checkbox(c, &a.toolHTTP3, "HTTP/3")
 					})
 				} else {
-					a.field(c, a.t("STUN 服务器", "STUN server"), func() { ui.TextInput(c.Key("stun-server"), &a.toolServer).FillWidth().Label("STUN server") })
+					a.field(c, a.t("服务器", "Server"), func() {
+						ui.TextInput(c.Key("stun-server"), &a.toolServer).FillWidth().Label(a.t("服务器", "Server"))
+					})
 				}
 				a.field(c, a.t("出站", "Outbound"), func() {
-					options := []string{""}
+					outboundValues := []string{""}
+					outboundOptions := []string{a.t("默认", "Default")}
 					for _, item := range a.snapshot.Outbounds {
-						options = append(options, item.GetTag())
+						outboundValues = append(outboundValues, item.GetTag())
+						outboundOptions = append(outboundOptions, item.GetTag())
 					}
-					ui.Select(c, &a.toolOutbound, options).FillWidth().Label(a.t("出站（空值为默认）", "Outbound (empty = default)"))
+					outboundOption := outboundOptions[0]
+					for i, value := range outboundValues {
+						if value == a.toolOutbound {
+							outboundOption = outboundOptions[i]
+						}
+					}
+					if ui.Select(c, &outboundOption, outboundOptions).FillWidth().Label(a.t("出站", "Outbound")).Changed() {
+						for i, option := range outboundOptions {
+							if outboundOption == option {
+								a.toolOutbound = outboundValues[i]
+								break
+							}
+						}
+					}
 				})
 				ui.Row(c).Gap(10).Children(func() {
 					ui.PrimaryButton(c, a.t("开始测试", "Start test")).Disabled(a.client == nil || a.busy["tool"]).OnClick(a.startTool)
@@ -48,46 +87,35 @@ func (a *App) tools(c *ui.Context) {
 						ui.Spinner(c)
 					}
 				})
-				if a.client == nil {
-					a.label(c, a.t("请先连接或启动实例。", "Connect to or start an instance first."))
-				}
-			})
+							})
 			if a.toolError != "" {
 				ui.Text(c, a.toolError).TextColor(a.palette.danger).Selectable()
 			}
 			if a.tool == "quality" && a.quality != nil {
 				p := a.quality
-				a.card(c, a.t("测试结果", "Results"), func() {
-					a.line(c, a.t("阶段", "Phase"), fmt.Sprint(p.GetPhase()))
+				a.card(c, a.t("结果", "Results"), func() {
 					a.line(c, a.t("空闲延迟", "Idle latency"), fmt.Sprintf("%d ms", p.GetIdleLatencyMs()))
-					a.line(c, a.t("下载容量", "Download capacity"), humanRate(p.GetDownloadCapacity()))
-					a.line(c, a.t("上传容量", "Upload capacity"), humanRate(p.GetUploadCapacity()))
-					a.line(c, "Download RPM", fmt.Sprint(p.GetDownloadRPM()))
-					a.line(c, "Upload RPM", fmt.Sprint(p.GetUploadRPM()))
+					a.line(c, a.t("下载", "Download"), humanRate(p.GetDownloadCapacity()))
+					a.line(c, a.t("上传", "Upload"), humanRate(p.GetUploadCapacity()))
+					a.line(c, a.t("下载 RPM", "Download RPM"), fmt.Sprint(p.GetDownloadRPM()))
+					a.line(c, a.t("上传 RPM", "Upload RPM"), fmt.Sprint(p.GetUploadRPM()))
 					a.line(c, a.t("已用时间", "Elapsed"), fmt.Sprintf("%.1f s", float64(p.GetElapsedMs())/1000))
-					if p.GetIsFinal() && p.GetError() == "" {
-						a.pill(c, a.t("已完成", "Completed"), a.palette.good)
-					}
-					if p.GetError() != "" {
+										if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)
 					}
 				})
 			}
 			if a.tool == "stun" && a.stun != nil {
 				p := a.stun
-				a.card(c, a.t("测试结果", "Results"), func() {
-					a.line(c, a.t("阶段", "Phase"), fmt.Sprint(p.GetPhase()))
+				a.card(c, a.t("结果", "Results"), func() {
 					a.line(c, a.t("外部地址", "External address"), p.GetExternalAddr())
 					a.line(c, a.t("延迟", "Latency"), fmt.Sprintf("%d ms", p.GetLatencyMs()))
-					a.line(c, "NAT mapping", natName(p.GetNatMapping()))
-					a.line(c, "NAT filtering", natFilter(p.GetNatFiltering()))
+					a.line(c, a.t("NAT 映射", "NAT mapping"), natName(p.GetNatMapping()))
+					a.line(c, a.t("NAT 过滤", "NAT filtering"), natFilter(p.GetNatFiltering()))
 					if !p.GetNatTypeSupported() {
-						a.label(c, a.t("该服务器不支持完整的 NAT 类型探测。", "This server does not support full NAT type detection."))
+						a.line(c, a.t("NAT 类型检测", "NAT type detection"), a.t("服务器不支持", "Not supported by server"))
 					}
-					if p.GetIsFinal() && p.GetError() == "" {
-						a.pill(c, a.t("已完成", "Completed"), a.palette.good)
-					}
-					if p.GetError() != "" {
+										if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)
 					}
 				})
@@ -140,22 +168,22 @@ func (a *App) startTool() {
 func natName(n int32) string {
 	switch n {
 	case 2:
-		return "Endpoint independent"
+		return "Endpoint Independent"
 	case 3:
-		return "Address dependent"
+		return "Address Dependent"
 	case 4:
-		return "Address and port dependent"
+		return "Address and Port Dependent"
 	}
 	return "Unknown"
 }
 func natFilter(n int32) string {
 	switch n {
 	case 1:
-		return "Endpoint independent"
+		return "Endpoint Independent"
 	case 2:
-		return "Address dependent"
+		return "Address Dependent"
 	case 3:
-		return "Address and port dependent"
+		return "Address and Port Dependent"
 	}
 	return "Unknown"
 }

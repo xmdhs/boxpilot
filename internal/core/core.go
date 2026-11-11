@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Release struct {
@@ -25,7 +26,16 @@ type Release struct {
 	Size        int64
 }
 type Installed struct{ Version, Path string }
-type Profile struct{ ID, Name, Path string }
+type Profile struct {
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Path               string    `json:"path,omitempty"`
+	Type               string    `json:"type"`
+	RemoteURL          string    `json:"remoteURL,omitempty"`
+	AutoUpdate         bool      `json:"autoUpdate,omitempty"`
+	AutoUpdateInterval int       `json:"autoUpdateInterval,omitempty"`
+	LastUpdated        time.Time `json:"lastUpdated,omitempty"`
+}
 type State struct {
 	Phase       string
 	Error       string
@@ -35,12 +45,19 @@ type State struct {
 	Output      string
 }
 
+type Controller interface {
+	Start(context.Context, string, Profile, bool) error
+	Stop(context.Context) error
+	State() State
+}
+
 var (
-	ErrAPIConflict      = errors.New("configuration already contains an API service")
-	ErrBusy             = errors.New("core is already running or changing state")
-	ErrIncompatible     = errors.New("sing-box version must support API service (1.14 or newer in major version 1)")
-	ErrDigest           = errors.New("missing or invalid SHA-256 digest")
-	ErrAlreadyInstalled = errors.New("version is already installed; it will not be overwritten")
+	ErrAPIConflict          = errors.New("configuration already contains an API service")
+	ErrBusy                 = errors.New("core is already running or changing state")
+	ErrIncompatible         = errors.New("sing-box version must support API service (1.14 or newer in major version 1)")
+	ErrDigest               = errors.New("missing or invalid SHA-256 digest")
+	ErrAlreadyInstalled     = errors.New("version is already installed; it will not be overwritten")
+	ErrElevationUnsupported = errors.New("elevated core execution is only supported on Windows")
 )
 
 const (

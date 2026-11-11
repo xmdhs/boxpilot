@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProfilesCRUDAndPreservation(t *testing.T) {
@@ -72,6 +73,21 @@ func TestProfilesCRUDAndPreservation(t *testing.T) {
 		t.Fatalf("delete: %+v %v", list, err)
 	}
 }
+func TestRemoteProfileMetadataRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	profile, err := SaveProfileWithMetadata(root, Profile{Type: "remote", RemoteURL: "https://example.com/config.json", AutoUpdate: true, AutoUpdateInterval: 45, LastUpdated: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)}, "Remote", DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := Profiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) != 1 || profiles[0] != profile || profiles[0].Type != "remote" || profiles[0].RemoteURL != "https://example.com/config.json" || profiles[0].AutoUpdateInterval != 45 {
+		t.Fatalf("remote metadata did not round-trip: %#v (saved %#v)", profiles, profile)
+	}
+}
+
 func TestAPIConflictAndInvalidConfig(t *testing.T) {
 	source := []byte(`{"services":[{"type":"api","secret":"old"},{"type":"resolved","tag":"keep"},{"type":"api"}],"unknown":true}`)
 	if _, err := deriveConfig(source, 1, "new", false); !errors.Is(err, ErrAPIConflict) {

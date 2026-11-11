@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.21.1
 	github.com/egoist/mygo v0.0.0
 	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f
+	golang.org/x/sys v0.48.0
 	google.golang.org/protobuf v1.36.12
 )
 

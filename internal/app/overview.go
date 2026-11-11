@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"boxpilot/internal/api"
+	"boxpilot/internal/gen/daemon"
 	"boxpilot/internal/model"
 	"github.com/egoist/mygo/ui"
 )
@@ -28,26 +29,35 @@ func (a *App) cardTitle(id string) string {
 	return id
 }
 func (a *App) overview(c *ui.Context) {
-	a.pageTitle(c, "概览", "Overview", func() {
-		a.iconButton(c, "manage-cards", a.t("管理卡片", "Dashboard Items"), "⚙", func() { a.cardDialog = true })
+	a.pageTitle(c, "概述", "Overview", func() {
+		a.iconButton(c, "manage-cards", a.t("仪表项目", "Dashboard Items"), "⚙", func() { a.cardDialog = true })
 	})
 	if a.client == nil {
-		a.card(c, a.t("欢迎使用 BoxPilot", "Welcome to BoxPilot"), func() {
-			a.label(c, a.t("一个独立的原生 sing-box 控制面板，不隶属于上游项目。", "An independent native controller for sing-box, not affiliated with upstream."))
+		a.card(c, "", func() {
 			ui.Row(c).Gap(10).Wrap().Children(func() {
-				ui.PrimaryButton(c, a.t("安装与管理本机核心", "Manage local core")).OnClick(func() { a.page = "core" })
-				ui.Button(c, a.t("连接已有实例", "Connect to existing instance")).OnClick(func() { a.editServer("") })
+				ui.PrimaryButton(c, a.t("核心", "Core")).OnClick(func() { a.page = "core" })
+				ui.Button(c, a.t("连接", "Connect")).OnClick(func() { a.editServer("") })
 			})
 		})
 		return
 	}
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).Gap(18).FillWidth().Children(func() {
-			statusLabel := fmt.Sprint(a.snapshot.ServiceStatus.GetStatus())
+			statusLabel := a.t("服务未启动", "Service not started")
+			switch a.snapshot.ServiceStatus.GetStatus() {
+			case daemon.ServiceStatus_STARTING:
+				statusLabel = a.t("服务启动中...", "Service starting...")
+			case daemon.ServiceStatus_STARTED:
+				statusLabel = a.t("服务正在运行", "Service is Running")
+			case daemon.ServiceStatus_STOPPING:
+				statusLabel = a.t("服务停止中...", "Service stopping...")
+			case daemon.ServiceStatus_FATAL:
+				statusLabel = a.t("服务启动失败", "Service failed to start")
+			}
 			ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 				a.pill(c, statusLabel, a.statusColor(a.snapshot.Phase))
 				if a.snapshot.StartedAt > 0 {
-					a.label(c, a.t("运行时间 ", "Uptime ")+model.FormatDuration(time.Since(time.UnixMilli(a.snapshot.StartedAt))))
+					a.label(c, a.t("运行时间", "Uptime")+" "+model.FormatDuration(time.Since(time.UnixMilli(a.snapshot.StartedAt))))
 					c.After(time.Second)
 				}
 				ui.Spacer(c)
@@ -72,7 +82,7 @@ func (a *App) overview(c *ui.Context) {
 						continue
 					}
 					c.Key("card-" + id)
-					a.card(c, a.cardTitle(id), func() {
+					card := a.card(c, a.cardTitle(id), func() {
 						s := a.snapshot.Status
 						switch id {
 						case "upload", "download":
@@ -98,13 +108,31 @@ func (a *App) overview(c *ui.Context) {
 							a.line(c, a.t("入站", "Inbound"), fmt.Sprint(s.GetConnectionsIn()))
 							a.line(c, a.t("出站", "Outbound"), fmt.Sprint(s.GetConnectionsOut()))
 						case "mode":
-							mode := a.snapshot.CurrentMode
-							if ui.Select(c.Key("mode-select"), &mode, a.snapshot.Modes).FillWidth().Label(a.t("代理模式", "Proxy mode")).Changed() {
-								next := mode
-								a.rpc("mode", func(ctx context.Context, client *api.Client) error { return client.SetClashMode(ctx, next) })
+							modes := a.snapshot.Modes
+							selected := 0
+							for i, mode := range modes {
+								if mode == a.snapshot.CurrentMode {
+									selected = i
+									break
+								}
+							}
+							if len(modes) > 1 && len(modes) <= 3 {
+								if ui.Segmented(c.Key("mode-segmented"), &selected, modes...).FillWidth().FillEqually().Label(a.t("Clash 模式", "Clash Mode")).Changed() {
+									next := modes[selected]
+									a.rpc("mode", func(ctx context.Context, client *api.Client) error { return client.SetClashMode(ctx, next) })
+								}
+							} else if len(modes) > 3 {
+								mode := a.snapshot.CurrentMode
+								if ui.Select(c.Key("mode-select"), &mode, modes).FillWidth().Label(a.t("Clash 模式", "Clash Mode")).Changed() {
+									next := mode
+									a.rpc("mode", func(ctx context.Context, client *api.Client) error { return client.SetClashMode(ctx, next) })
+								}
 							}
 						}
 					})
+					if id == "mode" {
+						card.ColumnSpan(cols)
+					}
 				}
 			})
 			a.unsupported(c, "status")
@@ -114,8 +142,9 @@ func (a *App) overview(c *ui.Context) {
 }
 func (a *App) cardManager(c *ui.Context) {
 	ui.DialogBase(c, &a.cardDialog, func(back, panel ui.Element) {
+		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
-		ui.Text(c, a.t("仪表盘卡片", "Dashboard Items")).FontSize(20).Bold()
+		ui.Text(c, a.t("仪表项目", "Dashboard Items")).FontSize(20).Bold()
 		order := a.settings.Cards
 		if len(order) == 0 {
 			order = append([]string(nil), cardIDs...)
@@ -127,7 +156,7 @@ func (a *App) cardManager(c *ui.Context) {
 			}
 			ui.Row(c.Key(id)).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, a.cardTitle(id)).Grow(1)
-				a.iconButton(c, "up-"+id, a.t("上移 ", "Move up ")+a.cardTitle(id), "↑", func() {
+				a.iconButton(c, "up-"+id, "↑", "↑", func() {
 					if i > 0 {
 						next := append([]string(nil), order...)
 						next[i-1], next[i] = next[i], next[i-1]
@@ -135,7 +164,7 @@ func (a *App) cardManager(c *ui.Context) {
 						a.saveSettings()
 					}
 				})
-				a.iconButton(c, "down-"+id, a.t("下移 ", "Move down ")+a.cardTitle(id), "↓", func() {
+				a.iconButton(c, "down-"+id, "↓", "↓", func() {
 					if i < len(order)-1 {
 						next := append([]string(nil), order...)
 						next[i+1], next[i] = next[i], next[i+1]
@@ -155,7 +184,7 @@ func (a *App) cardManager(c *ui.Context) {
 			})
 		}
 		ui.Row(c).Gap(10).FillWidth().Children(func() {
-			ui.Button(c, a.t("恢复默认", "Reset")).OnClick(func() {
+			ui.Button(c, a.t("重置", "Reset")).OnClick(func() {
 				a.settings.Cards = append([]string(nil), cardIDs...)
 				a.settings.DisabledCards = nil
 				a.saveSettings()

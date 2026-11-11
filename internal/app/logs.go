@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -33,9 +32,9 @@ func (a *App) visibleLogs() []model.LogEntry {
 func (a *App) logs(c *ui.Context) {
 	services := c.Services()
 	a.pageTitle(c, "日志", "Logs", func() {
-		pause := a.t("暂停", "Pause")
+		pause := a.t("暂停滚动", "Pause scrolling")
 		if a.logsPaused {
-			pause = a.t("继续", "Resume")
+			pause = a.t("恢复滚动", "Resume scrolling")
 		}
 		ui.Button(c, pause).OnClick(func() {
 			a.logsPaused = !a.logsPaused
@@ -46,7 +45,7 @@ func (a *App) logs(c *ui.Context) {
 				a.logList.ScrollToEnd()
 			}
 		})
-		ui.Button(c, a.t("复制日志", "Copy logs")).OnClick(func() {
+		ui.Button(c, a.t("到剪贴板", "To Clipboard")).OnClick(func() {
 			var b strings.Builder
 			for _, e := range a.visibleLogs() {
 				b.WriteString(a.redactSensitive(plainLog(e.Message)))
@@ -54,20 +53,18 @@ func (a *App) logs(c *ui.Context) {
 			}
 			services.WriteClipboard(b.String())
 		})
-		ui.Button(c, a.t("保存日志", "Save logs")).Disabled(a.busy["export-logs"]).OnClick(a.exportLogs)
-		ui.Button(c, a.t("清空", "Clear")).Disabled(a.client == nil).OnClick(func() {
-			a.confirm(a.t("清空日志？", "Clear logs?"), a.t("将清空当前实例的日志缓冲。", "This clears the current instance's log buffer."), func() {
+		ui.Button(c, a.t("清除日志", "Clear Logs")).Disabled(a.client == nil).OnClick(func() {
+			a.confirm(a.t("清除日志", "Clear Logs"), "", func() {
 				a.rpc("clear-logs", func(ctx context.Context, client *api.Client) error { return client.ClearLogs(ctx) })
 			})
 		})
 	})
 	ui.Row(c).FillWidth().Gap(12).Children(func() {
-		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).Label(a.t("搜索日志", "Search logs"))
+		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).Label(a.t("搜索", "Search"))
 		ui.Select(c.Key("log-level"), &a.logLevel, []string{"all", "PANIC", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}).Width(110).Label(a.t("日志级别", "Log level"))
 	})
 	a.unsupported(c, "logs")
 	entries := a.visibleLogs()
-	a.label(c, fmt.Sprintf(a.t("显示 %d 条 · 缓冲上限 3000 条 · 导出可能包含敏感信息", "%d entries · buffer limit 3000 · exports may contain sensitive information"), len(entries)))
 	a.logList.Key = func(i int) any { return entries[i].ID }
 	ui.List(c.Key("log-list"), &a.logList, len(entries), func(i int) {
 		entry := entries[i]
@@ -84,7 +81,7 @@ func (a *App) logs(c *ui.Context) {
 		})
 	}).Grow(1).Background(a.palette.card).Border(1, a.palette.border).Radius(12)
 	if len(entries) == 0 {
-		a.label(c, a.t("暂无匹配日志", "No matching logs"))
+		a.label(c, a.t("无日志", "Empty logs"))
 	}
 }
 

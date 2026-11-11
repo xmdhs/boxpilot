@@ -5,14 +5,75 @@ import (
 	"fmt"
 
 	"boxpilot/internal/api"
+	"boxpilot/internal/gen/daemon"
 	"github.com/egoist/mygo/ui"
 )
 
+type groupExpandOverride struct {
+	expanded   bool
+	generation uint64
+}
+
+func (a *App) groupExpanded(group *daemon.Group) bool {
+	if group == nil {
+		return false
+	}
+	if override, ok := a.groupExpandOverrides[group.GetTag()]; ok && override.generation == a.generation {
+		return override.expanded
+	}
+	return group.GetIsExpand()
+}
+
+func (a *App) confirmGroupExpansion(groups []*daemon.Group) {
+	for _, group := range groups {
+		if group == nil {
+			continue
+		}
+		tag := group.GetTag()
+		if override, ok := a.groupExpandOverrides[tag]; ok && (override.generation != a.generation || override.expanded == group.GetIsExpand()) {
+			delete(a.groupExpandOverrides, tag)
+		}
+	}
+}
+
+func (a *App) rollbackGroupExpansion(tag string, generation uint64, expanded bool) {
+	if override, ok := a.groupExpandOverrides[tag]; ok && override.generation == generation && override.expanded == expanded {
+		delete(a.groupExpandOverrides, tag)
+	}
+}
+
+func (a *App) toggleGroup(group *daemon.Group) {
+	if group == nil {
+		return
+	}
+	tag := group.GetTag()
+	key := "expand-" + tag
+	if a.busy[key] {
+		return
+	}
+	next := !a.groupExpanded(group)
+	generation := a.generation
+	if a.groupExpandOverrides == nil {
+		a.groupExpandOverrides = make(map[string]groupExpandOverride)
+	}
+	a.groupExpandOverrides[tag] = groupExpandOverride{expanded: next, generation: generation}
+	a.rpcWithCallbacks(key, func(ctx context.Context, client *api.Client) error {
+		return client.SetGroupExpand(ctx, tag, next)
+	}, nil, func(err error) {
+		if generation == a.generation {
+			if override, ok := a.groupExpandOverrides[tag]; ok && override.generation == generation && override.expanded == next {
+				delete(a.groupExpandOverrides, tag)
+			}
+			a.fail(err)
+		}
+	})
+}
+
 func (a *App) groups(c *ui.Context) {
-	a.pageTitle(c, "分组", "Groups", nil)
+	a.pageTitle(c, "组", "Groups", nil)
 	a.unsupported(c, "groups")
 	if len(a.snapshot.Groups) == 0 {
-		a.empty(c, "暂无分组，请连接已启动的实例", "No groups. Connect to a running instance.")
+		a.empty(c, "无分组", "No groups")
 		return
 	}
 	width, _ := c.Size()
@@ -30,21 +91,21 @@ func (a *App) groups(c *ui.Context) {
 						ui.Text(c, g.GetTag()).Bold()
 						a.label(c, g.GetType()).Grow(1)
 						a.pill(c, fmt.Sprint(len(g.GetItems())), a.palette.muted)
-						ui.Button(c, a.t("测速", "URL test")).Disabled(a.busy["test-"+g.GetTag()]).OnClick(func() {
+						a.iconButtonDisabled(c, "test-"+g.GetTag(), a.t("URL 测试", "URL test"), "speed", a.busy["test-"+g.GetTag()], func() {
 							a.rpc("test-"+g.GetTag(), func(ctx context.Context, client *api.Client) error { return client.URLTest(ctx, g.GetTag()) })
 						})
+						expanded := a.groupExpanded(g)
 						expandLabel := a.t("展开", "Expand")
-						if g.GetIsExpand() {
+						expandIcon := "expand_more"
+						if expanded {
 							expandLabel = a.t("收起", "Collapse")
+							expandIcon = "expand_less"
 						}
-						ui.Button(c, expandLabel).OnClick(func() {
-							next := !g.GetIsExpand()
-							a.rpc("expand-"+g.GetTag(), func(ctx context.Context, client *api.Client) error {
-								return client.SetGroupExpand(ctx, g.GetTag(), next)
-							})
+						a.iconButtonDisabled(c, "expand-"+g.GetTag(), expandLabel, expandIcon, a.busy["expand-"+g.GetTag()], func() {
+							a.toggleGroup(g)
 						})
 					})
-					if g.GetIsExpand() {
+					if a.groupExpanded(g) {
 						ui.Grid(c).Columns(columns).Gap(9).FillWidth().Children(func() {
 							for _, item := range g.GetItems() {
 								item := item
@@ -73,7 +134,7 @@ func (a *App) groups(c *ui.Context) {
 									}
 								})
 								b.ContextMenu(func(m *ui.Menu) {
-									if m.Item(a.t("测试此节点", "Test this node")).Chosen() {
+									if m.Item(a.t("URL 测试", "URL test")).Chosen() {
 										a.rpc("node-test-"+item.GetTag(), func(ctx context.Context, client *api.Client) error { return client.URLTest(ctx, item.GetTag()) })
 									}
 								})

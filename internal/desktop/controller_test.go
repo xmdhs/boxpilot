@@ -60,6 +60,35 @@ func (t *fakeTray) OnRightClick(fn func()) func() {
 }
 func (t *fakeTray) Destroy() { t.destroys++ }
 
+func TestDestroyMinimizedWindowAndRecreateFromTray(t *testing.T) {
+	first, second := &fakeWindow{}, &fakeWindow{}
+	tray := &fakeTray{}
+	created, destroyed := 0, 0
+	var controller *Controller
+	callbacks := Callbacks{
+		EnsureWindow: func() {
+			created++
+			if created == 1 {
+				controller.AttachWindow(second)
+			}
+		},
+		DestroyWindow: func() { destroyed++ },
+	}
+	controller = newController(first, callbacks, "windows", func() (trayPort, error) { return tray, nil })
+	if err := controller.Configure(true, true, true); err != nil {
+		t.Fatal(err)
+	}
+	first.minimize()
+	if destroyed != 1 || controller.win != nil {
+		t.Fatalf("minimized GUI was retained: destroyed=%d window=%v", destroyed, controller.win)
+	}
+	controller.Show()
+	if controller.win == nil || created != 1 || !reflect.DeepEqual(second.actions, []string{"show", "focus"}) {
+		t.Fatalf("tray did not recreate and show window: created=%d actions=%v", created, second.actions)
+	}
+	controller.Destroy()
+}
+
 func TestControllerCloseMinimizePolicy(t *testing.T) {
 	for _, platform := range []string{"linux", "windows", "darwin"} {
 		for _, enabled := range []bool{false, true} {

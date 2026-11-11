@@ -139,12 +139,8 @@ func TestManagerLifecycleContextDetachmentAndRedaction(t *testing.T) {
 		t.Fatal("stopped output leaked secret")
 	}
 	runDirs, err = os.ReadDir(filepath.Join(root, "runtime"))
-	if err != nil || len(runDirs) != 1 || runDirs[0].Name() != "last.log" {
-		t.Fatal("sensitive runtime files not cleaned")
-	}
-	log, err := os.ReadFile(filepath.Join(root, "runtime", "last.log"))
-	if err != nil || strings.Contains(string(log), state.Secret) || !strings.Contains(string(log), "[REDACTED]") {
-		t.Fatal("persistent diagnostic missing or leaked secret")
+	if err != nil || len(runDirs) != 0 {
+		t.Fatalf("runtime files were persisted after stop: %v %v", runDirs, err)
 	}
 	if err = manager.Stop(context.Background()); err != nil {
 		t.Fatal(err)

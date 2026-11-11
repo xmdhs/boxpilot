@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+type managedProcess interface {
+	PID() int
+	Wait() error
+	GracefulStop() error
+	Kill() error
+}
+
 type boundedOutput struct {
 	mu   sync.Mutex
 	data []byte

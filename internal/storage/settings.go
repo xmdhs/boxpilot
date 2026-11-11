@@ -35,6 +35,7 @@ type Settings struct {
 	MinimizeToTray   bool     `json:"minimizeToTray"`
 	CloseToTray      bool     `json:"closeToTray"`
 	OpenAtLogin      bool     `json:"openAtLogin"`
+	ElevateCore      bool     `json:"elevateCore"`
 	Servers          []Server `json:"servers"`
 	ActiveID         string   `json:"activeID"`
 	CorePath         string   `json:"corePath"`

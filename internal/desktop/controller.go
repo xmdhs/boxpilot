@@ -15,11 +15,15 @@ import (
 // the application's asynchronous shutdown. Show is an optional notification
 // after the window has been restored/shown/focused; it must not call Show again.
 type Callbacks struct {
-	Show        func()
-	Quit        func()
-	ToggleCore  func()
-	CoreRunning func() bool
-	LocalActive func() bool
+	// EnsureWindow recreates the native UI window if it was destroyed while hidden.
+	EnsureWindow func()
+	// DestroyWindow releases the native window after tray hiding, while keeping the app alive.
+	DestroyWindow func()
+	Show          func()
+	Quit          func()
+	ToggleCore    func()
+	CoreRunning   func() bool
+	LocalActive   func() bool
 }
 
 type windowPort interface {
@@ -96,10 +100,38 @@ func newController(win windowPort, cb Callbacks, platform string, factory trayFa
 		c.hostErr = ErrTrayHostNotProbed
 	}
 	if win != nil {
+		c.AttachWindow(win)
+	}
+	return c
+}
+
+// AttachWindow installs tray lifecycle handlers on the current native window.
+// It is used when a window destroyed to reclaim UI memory is recreated.
+func (c *Controller) AttachWindow(win windowPort) {
+	if c.destroyed {
+		return
+	}
+	c.detachWindow()
+	c.win = win
+	if win != nil {
 		c.offMinimize = win.OnMinimize(c.onMinimize)
 		c.offClose = win.OnClose(c.onClose)
 	}
-	return c
+}
+
+// DetachWindow releases references and event handlers without affecting the tray.
+func (c *Controller) DetachWindow() { c.detachWindow() }
+
+func (c *Controller) detachWindow() {
+	if c.offMinimize != nil {
+		c.offMinimize()
+		c.offMinimize = nil
+	}
+	if c.offClose != nil {
+		c.offClose()
+		c.offClose = nil
+	}
+	c.win = nil
 }
 
 // SetTrayHostProbe installs a previously computed ProbeTrayHost result. Run the
@@ -182,8 +214,20 @@ func (c *Controller) Available() bool {
 
 func (c *Controller) onMinimize() {
 	if !c.quitting && c.minimize && c.Available() && c.win != nil {
-		c.hidden = true
-		c.win.Hide()
+		c.hideToTray()
+	}
+}
+
+func (c *Controller) hideToTray() {
+	win := c.win
+	if win == nil {
+		return
+	}
+	c.hidden = true
+	win.Hide()
+	if c.cb.DestroyWindow != nil {
+		c.detachWindow()
+		c.cb.DestroyWindow()
 	}
 }
 
@@ -194,8 +238,7 @@ func (c *Controller) onClose(e *mygo.CloseEvent) {
 	// Even an ordinary close must let the application clean up its core.
 	e.PreventDefault()
 	if c.close && c.Available() && c.win != nil {
-		c.hidden = true
-		c.win.Hide()
+		c.hideToTray()
 		return
 	}
 	c.requestQuit()
@@ -211,6 +254,9 @@ func (c *Controller) requestQuit() {
 func (c *Controller) Show() {
 	if c.destroyed {
 		return
+	}
+	if c.win == nil && c.cb.EnsureWindow != nil {
+		c.cb.EnsureWindow()
 	}
 	c.hidden = false
 	if c.win != nil {
@@ -285,11 +331,6 @@ func (c *Controller) Destroy() {
 		return
 	}
 	c.removeTray(true)
-	if c.offMinimize != nil {
-		c.offMinimize()
-	}
-	if c.offClose != nil {
-		c.offClose()
-	}
+	c.detachWindow()
 	c.destroyed = true
 }

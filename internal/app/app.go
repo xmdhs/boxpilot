@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +26,7 @@ type App struct {
 	settings                     storage.Settings
 	win                          *mygo.Window
 	desktop                      *desktop.Controller
-	manager                      *core.Manager
+	manager                      core.Controller
 	life                         context.Context
 	cancel                       context.CancelFunc
 	workers                      sync.WaitGroup
@@ -41,6 +39,7 @@ type App struct {
 	connectionContext            context.Context
 	generation                   uint64
 	snapshot                     api.Snapshot
+	groupExpandOverrides         map[string]groupExpandOverride
 	secretCache                  map[string]string
 	busy                         map[string]bool
 	jobs                         map[string]context.CancelFunc
@@ -49,6 +48,7 @@ type App struct {
 	notice                       string
 	confirmOpen                  bool
 	confirmTitle, confirmMessage string
+	confirmButtonText            string
 	confirmAction                func()
 	palette                      palette
 
@@ -56,6 +56,7 @@ type App struct {
 	serverID, serverName, serverURL, serverSecret, serverRemember string
 	serverHTTPConsent                                             bool
 	serverFileConsent                                             bool
+	serverSecretRequired                                          bool
 	serverLoading                                                 bool
 	serverFormRevision                                            uint64
 	connectionQuery                                               string
@@ -82,6 +83,11 @@ type App struct {
 	downloadDone, downloadTotal            int64
 	profileEditor                          bool
 	profileID, profileName, profileContent string
+	profileType, profileRemoteURL          string
+	profileAutoUpdate                      bool
+	profileAutoUpdateInterval              string
+	profileLastUpdated                     time.Time
+	pendingOpenURLs                        []string
 	profileDirty                           bool
 	externalBinary                         string
 	configImportPath                       string
@@ -101,7 +107,7 @@ func New(root string, s storage.Settings) *App {
 
 func (a *App) Open(loadErr error) {
 	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
-	a.desktop = desktop.New(a.win, desktop.Callbacks{Quit: mygo.App.Quit, ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" }, LocalActive: func() bool { return a.settings.ActiveID == localID || a.settings.ActiveID == "" }})
+	a.desktop = desktop.New(a.win, desktop.Callbacks{EnsureWindow: a.ensureWindow, DestroyWindow: a.destroyWindowForTray, Quit: mygo.App.Quit, ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" }, LocalActive: func() bool { return a.settings.ActiveID == localID || a.settings.ActiveID == "" }})
 	a.applyAppearance()
 	// 托盘探测和凭据读取可能触及 D-Bus，放在 worker 中。
 	var trayProbeErr error
@@ -113,7 +119,25 @@ func (a *App) Open(loadErr error) {
 		a.desktop.SetLanguage(a.language())
 		a.configureTray()
 	})
-	a.manager = core.NewManager(a.root, func(s core.State) {
+	a.replaceCoreController()
+	if loadErr != nil {
+		a.storageBlocked = true
+		a.fail(fmt.Errorf("读取设置失败；为保护原文件，已暂停保存：%w", loadErr))
+	}
+	a.refreshLocal()
+	a.runRemoteUpdateScheduler()
+	pendingURLs := append([]string(nil), a.pendingOpenURLs...)
+	a.pendingOpenURLs = nil
+	for _, rawURL := range pendingURLs {
+		a.handleOpenURL(rawURL)
+	}
+	if a.settings.ActiveID != "" && a.settings.ActiveID != localID {
+		a.activate(a.settings.ActiveID)
+	}
+}
+
+func (a *App) replaceCoreController() {
+	publish := func(s core.State) {
 		a.post(func() {
 			a.coreState = s
 			if a.desktop != nil {
@@ -128,28 +152,60 @@ func (a *App) Open(loadErr error) {
 				}
 			}
 		})
-	})
-	if loadErr != nil {
-		a.storageBlocked = true
-		a.fail(fmt.Errorf("读取设置失败；为保护原文件，已暂停保存：%w", loadErr))
 	}
-	a.refreshLocal()
-	if a.settings.ActiveID != "" && a.settings.ActiveID != localID {
-		a.activate(a.settings.ActiveID)
+	if closer, ok := a.manager.(interface{ Close() }); ok {
+		closer.Close()
+	}
+	if a.settings.ElevateCore && core.ElevatedCoreSupported() {
+		a.manager = core.NewElevatedManager(a.root, publish)
+	} else {
+		a.manager = core.NewManager(a.root, publish)
+	}
+	a.coreState = a.manager.State()
+}
+
+func (a *App) ensureWindow() {
+	if a.cleaned || a.closing {
+		return
+	}
+	if a.win != nil && !a.win.IsDestroyed() {
+		return
+	}
+	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
+	if a.desktop != nil {
+		a.desktop.AttachWindow(a.win)
+	}
+	a.coreState = a.manager.State()
+}
+
+func (a *App) destroyWindowForTray() {
+	win := a.win
+	a.win = nil
+	if win != nil && !win.IsDestroyed() {
+		win.Destroy()
 	}
 }
 
 func (a *App) post(fn func()) {
-	if a.win != nil {
-		a.win.Update(func() {
-			if !a.cleaned && !a.closing {
-				fn()
-			}
-		})
+	update := func() {
+		if !a.cleaned && !a.closing {
+			fn()
+		}
 	}
+	if a.win != nil && !a.win.IsDestroyed() {
+		a.win.Update(update)
+		return
+	}
+	// The native window may be destroyed while the tray keeps the app alive.
+	// Continue applying stream/process state so a recreated view is current.
+	mygo.RunOnMain(update)
 }
 
 func (a *App) do(key string, task func(context.Context) error, done func()) {
+	a.doWithError(key, task, done, nil)
+}
+
+func (a *App) doWithError(key string, task func(context.Context) error, done func(), failed func(error)) {
 	if a.busy[key] || a.closing {
 		return
 	}
@@ -165,7 +221,11 @@ func (a *App) do(key string, task func(context.Context) error, done func()) {
 			delete(a.jobs, key)
 			delete(a.busy, key)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				a.fail(err)
+				if failed != nil {
+					failed(err)
+				} else {
+					a.fail(err)
+				}
 			} else if err == nil && done != nil {
 				done()
 			}
@@ -174,14 +234,23 @@ func (a *App) do(key string, task func(context.Context) error, done func()) {
 }
 
 func (a *App) rpc(key string, fn func(context.Context, *api.Client) error) {
+	a.rpcWithCallbacks(key, fn, nil, nil)
+}
+
+func (a *App) rpcWithCallbacks(key string, fn func(context.Context, *api.Client) error, done func(), failed func(error)) {
 	c := a.client
 	if c == nil {
-		a.fail(errors.New(a.t("请先连接实例", "Connect to an instance first")))
+		err := errors.New(a.t("连接", "Connect"))
+		if failed != nil {
+			failed(err)
+		} else {
+			a.fail(err)
+		}
 		return
 	}
 	generation := a.generation
 	session := a.connectionContext
-	a.do(key, func(ctx context.Context) error {
+	a.doWithError(key, func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 		if session != nil {
@@ -194,8 +263,16 @@ func (a *App) rpc(key string, fn func(context.Context, *api.Client) error) {
 		}
 		return err
 	}, func() {
+		if generation == a.generation && done != nil {
+			done()
+		}
+	}, func(err error) {
 		if generation == a.generation {
-			a.notice = a.t("操作完成", "Operation completed")
+			if failed != nil {
+				failed(err)
+			} else {
+				a.fail(err)
+			}
 		}
 	})
 }
@@ -214,6 +291,7 @@ func (a *App) disconnect() {
 		cancel()
 	}
 	a.snapshot = api.Snapshot{}
+	a.groupExpandOverrides = nil
 	a.detailID = ""
 	a.frozenLogs = nil
 	a.logsPaused = false
@@ -243,6 +321,7 @@ func (a *App) connect(server api.Server) {
 		c.Run(ctx, func(s api.Snapshot) {
 			a.post(func() {
 				if generation == a.generation {
+					a.confirmGroupExpansion(s.Groups)
 					a.snapshot = s
 				}
 			})
@@ -272,8 +351,8 @@ func (a *App) activate(id string) {
 			secret, cached := a.secretCache[id]
 			a.disconnect()
 			if !cached && s.Remember == "session" {
-				a.notice = a.t("该服务器的密钥仅保存于上次会话，请重新输入。", "This server's secret was session-only. Please enter it again.")
 				a.editServer(id)
+				a.serverSecretRequired = true
 				return
 			}
 			if cached {
@@ -333,11 +412,30 @@ func (a *App) redactSensitive(text string) string {
 }
 
 func (a *App) confirm(title, message string, action func()) {
+	a.confirmWithButton(title, message, a.t("好", "Ok"), action)
+}
+func (a *App) confirmWithButton(title, message, button string, action func()) {
 	a.confirmTitle = title
 	a.confirmMessage = message
+	a.confirmButtonText = button
 	a.confirmAction = action
 	a.confirmOpen = true
 }
+func (a *App) confirmButtonLabel() string {
+	if a.confirmOpen && a.confirmButtonText != "" {
+		return a.confirmButtonText
+	}
+	return a.t("好", "Ok")
+}
+
+// WindowAllClosed keeps the MyGo loop alive only while the tray can restore a
+// window destroyed to reclaim renderer resources.
+func (a *App) WindowAllClosed() {
+	if a.desktop == nil || !a.desktop.Available() {
+		mygo.App.Quit()
+	}
+}
+
 func (a *App) Show() {
 	if a.desktop != nil {
 		a.desktop.Show()
@@ -409,6 +507,9 @@ func (a *App) QuitCanceled() {
 }
 func (a *App) Destroy() {
 	a.cancel()
+	if closer, ok := a.manager.(interface{ Close() }); ok {
+		closer.Close()
+	}
 	if a.client != nil {
 		a.client.Close()
 	}
@@ -446,7 +547,7 @@ func (a *App) refreshLocal() {
 		}
 		profiles, err = core.Profiles(a.root)
 		return err
-	}, func() { a.installed = versions; a.profiles = profiles })
+	}, func() { a.installed = versions; a.profiles = profiles; a.updateDueRemoteProfiles() })
 }
 func (a *App) selectedProfile() (core.Profile, bool) {
 	for _, p := range a.profiles {
@@ -469,13 +570,13 @@ func (a *App) startCore(replace bool) {
 	}
 	p, ok := a.selectedProfile()
 	if !ok {
-		a.fail(errors.New(a.t("请创建并选择配置", "Create and select a configuration")))
+		a.fail(errors.New(a.t("无配置", "Empty profiles")))
 		a.page = "core"
 		return
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
-		a.fail(errors.New(a.t("请先安装或选择核心", "Install or select a core first")))
+		a.fail(errors.New(a.t("不可用", "Unavailable")))
 		a.page = "core"
 		return
 	}
@@ -569,24 +670,4 @@ func (a *App) flushSaves() {
 		}
 		saveQueues.Delete(a)
 	}
-}
-
-func (a *App) exportLogs() {
-	entries := append([]model.LogEntry(nil), a.visibleLogs()...)
-	var text strings.Builder
-	for _, e := range entries {
-		text.WriteString(a.redactSensitive(plainLog(e.Message)))
-		text.WriteByte('\n')
-	}
-	data := text.String()
-	a.do("export-logs", func(ctx context.Context) error {
-		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: a.win, Title: "Export logs", DefaultPath: "boxpilot-logs.txt"})
-		if err != nil {
-			return err
-		}
-		if path == "" {
-			return nil
-		}
-		return os.WriteFile(filepath.Clean(path), []byte(data), 0600)
-	}, nil)
 }

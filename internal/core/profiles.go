@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tailscale/hujson"
 )
@@ -78,7 +79,29 @@ func Profiles(root string) ([]Profile, error) {
 		if err = json.Unmarshal(name, &display); err != nil {
 			return nil, err
 		}
-		p := Profile{ID: e.Name(), Name: display, Path: filepath.Join(base, e.Name(), "config.json")}
+		p := Profile{ID: e.Name(), Name: display, Path: filepath.Join(base, e.Name(), "config.json"), Type: "local"}
+		metadataPath := filepath.Join(base, e.Name(), "profile.json")
+		if metadata, readErr := readLimited(metadataPath, 16<<10); readErr == nil {
+			var saved Profile
+			if err = json.Unmarshal(metadata, &saved); err != nil {
+				return nil, fmt.Errorf("profile metadata %s: %w", e.Name(), err)
+			}
+			if saved.Type != "local" && saved.Type != "remote" {
+				return nil, fmt.Errorf("invalid profile type %q", saved.Type)
+			}
+			p.Type = saved.Type
+			p.RemoteURL = saved.RemoteURL
+			p.AutoUpdate = saved.AutoUpdate
+			p.AutoUpdateInterval = saved.AutoUpdateInterval
+			p.LastUpdated = saved.LastUpdated
+		} else if !errors.Is(readErr, os.ErrNotExist) {
+			return nil, readErr
+		}
+		if p.Type == "remote" {
+			if _, err = ValidateRemoteURL(p.RemoteURL); err != nil {
+				return nil, fmt.Errorf("invalid remote profile URL: %w", err)
+			}
+		}
 		if _, err = readLimited(p.Path, maxConfigSize); err != nil {
 			return nil, err
 		}
@@ -93,6 +116,10 @@ func Profiles(root string) ([]Profile, error) {
 	return result, nil
 }
 func SaveProfile(root, id, name, content string) (Profile, error) {
+	return SaveProfileWithMetadata(root, Profile{ID: id, Type: "local"}, name, content)
+}
+
+func SaveProfileWithMetadata(root string, metadata Profile, name, content string) (Profile, error) {
 	if _, err := parseConfig([]byte(content)); err != nil {
 		return Profile{}, err
 	}
@@ -100,12 +127,32 @@ func SaveProfile(root, id, name, content string) (Profile, error) {
 	if name == "" || len(name) > 1024 {
 		return Profile{}, errors.New("profile name must contain 1–1024 bytes")
 	}
+	if metadata.Type == "" {
+		metadata.Type = "local"
+	}
+	if metadata.Type != "local" && metadata.Type != "remote" {
+		return Profile{}, errors.New("invalid profile type")
+	}
+	if metadata.Type == "remote" {
+		if _, err := ValidateRemoteURL(metadata.RemoteURL); err != nil {
+			return Profile{}, err
+		}
+		if metadata.AutoUpdateInterval <= 0 {
+			metadata.AutoUpdateInterval = 60
+		}
+	} else {
+		metadata.RemoteURL = ""
+		metadata.AutoUpdate = false
+		metadata.AutoUpdateInterval = 0
+		metadata.LastUpdated = time.Time{}
+	}
 	profileMu.Lock()
 	defer profileMu.Unlock()
 	base, err := profileBase(root)
 	if err != nil {
 		return Profile{}, err
 	}
+	id := metadata.ID
 	fresh := id == ""
 	if fresh {
 		id, err = randomID()
@@ -144,8 +191,18 @@ func SaveProfile(root, id, name, content string) (Profile, error) {
 	if err = atomicWrite(path, []byte(content)); err != nil {
 		return Profile{}, err
 	}
+	metadata.ID = id
+	metadata.Name = name
+	metadata.Path = path
+	metadataBytes, err := json.Marshal(metadata)
+	if err != nil {
+		return Profile{}, err
+	}
+	if err = atomicWrite(filepath.Join(dir, "profile.json"), metadataBytes); err != nil {
+		return Profile{}, err
+	}
 	success = true
-	return Profile{ID: id, Name: name, Path: path}, nil
+	return metadata, nil
 }
 func ReadProfile(p Profile) (string, error) {
 	b, err := readLimited(p.Path, maxConfigSize)

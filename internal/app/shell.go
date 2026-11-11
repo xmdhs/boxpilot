@@ -8,7 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-var pages = []struct{ id, zh, en, icon string }{{"overview", "概览", "Overview", "dashboard"}, {"groups", "分组", "Groups", "folder"}, {"connections", "连接", "Connections", "swap_vert"}, {"logs", "日志", "Logs", "text_snippet"}, {"tools", "工具", "Tools", "terminal"}, {"settings", "设置", "Settings", "settings"}, {"core", "本机核心", "Local Core", "memory"}}
+var pages = []struct{ id, zh, en, icon string }{{"overview", "概述", "Overview", "dashboard"}, {"groups", "组", "Groups", "folder"}, {"connections", "连接", "Connections", "swap_vert"}, {"logs", "日志", "Logs", "text_snippet"}, {"tools", "工具", "Tools", "terminal"}, {"settings", "设置", "Settings", "settings"}, {"core", "核心", "Core", "memory"}}
 
 func (a *App) view(c *ui.Context) {
 	dark := c.Theme().Dark
@@ -30,7 +30,7 @@ func (a *App) view(c *ui.Context) {
 			if a.notice != "" {
 				ui.Row(c).FillWidth().Padding(8, 20).Background(a.palette.soft).Gap(12).Children(func() {
 					ui.Text(c, a.notice).FontSize(12).Grow(1)
-					a.iconButton(c, "dismiss-notice", a.t("关闭提示", "Dismiss"), "×", func() { a.notice = "" })
+					a.iconButton(c, "dismiss-notice", a.t("关闭", "Close"), "×", func() { a.notice = "" })
 				})
 			}
 			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(24).Gap(18).Children(func() {
@@ -69,7 +69,7 @@ func (a *App) view(c *ui.Context) {
 		ui.Overlay(c, func() {
 			ui.Column(c).Fill().Background(a.palette.bg.Alpha(.95)).Modal().Center().Gap(12).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, a.t("正在停止核心并退出…", "Stopping core and exiting…"))
+				ui.Text(c, a.t("服务停止中...", "Service stopping..."))
 			})
 		})
 	}
@@ -80,7 +80,6 @@ func (a *App) sidebar(c *ui.Context) {
 	ui.Column(c).Width(232).Shrink(0).FillHeight().Background(p.surface).Padding(16, 12).Gap(6).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
 		ui.Column(c).Padding(12, 14, 26).Gap(2).Children(func() {
 			ui.Text(c, "BoxPilot").Font("Source Serif 4, Georgia, serif").FontSize(23).FontWeight(560)
-			a.label(c, a.t("原生控制面板", "NATIVE CONTROL PANEL")).FontSize(10).LetterSpacing(1.1)
 		})
 		for _, page := range pages {
 			page := page
@@ -107,7 +106,7 @@ func (a *App) sidebar(c *ui.Context) {
 					a.label(c, a.snapshot.Version).FontSize(10)
 				}
 			})
-			ui.Button(c, a.t("退出应用", "Quit Application")).FillWidth().OnClick(mygo.App.Quit)
+			ui.Button(c, a.t("退出", "Quit")).FillWidth().OnClick(mygo.App.Quit)
 		})
 	})
 }
@@ -115,9 +114,9 @@ func (a *App) sidebar(c *ui.Context) {
 func (a *App) toolbar(c *ui.Context, compact bool) {
 	ui.Row(c).FillWidth().Height(58).PaddingX(20).Gap(12).AlignItems(ui.Center).Background(a.palette.bg).BorderWidth(0, 0, 1, 0).BorderColor(a.palette.border).Children(func() {
 		if compact {
-			a.iconButton(c, "navigation", a.t("导航菜单", "Navigation"), "☰", func() { a.compactMenu = !a.compactMenu })
+			a.iconButton(c, "navigation", a.t("切换导航", "Toggle navigation"), "☰", func() { a.compactMenu = !a.compactMenu })
 		}
-		choices := []string{a.t("本机（受管）", "This Computer (managed)")}
+		choices := []string{a.t("本机", "This Computer")}
 		ids := []string{localID}
 		for _, s := range a.settings.Servers {
 			choices = append(choices, s.Name+" · "+s.ID[:min(6, len(s.ID))])
@@ -129,7 +128,7 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 				choice = choices[i]
 			}
 		}
-		if ui.Select(c.Key("active-server"), &choice, choices).Width(230).Label(a.t("当前实例", "Active instance")).Changed() {
+		if ui.Select(c.Key("active-server"), &choice, choices).Width(230).Label(a.t("服务器", "Servers")).Changed() {
 			for i, label := range choices {
 				if label == choice {
 					a.activate(ids[i])
@@ -145,14 +144,14 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 			}
 			ui.Button(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
 		} else {
-			a.iconButton(c, "reconnect", a.t("重新连接", "Reconnect"), "↻", func() { a.activate(a.settings.ActiveID) })
+			a.iconButton(c, "reconnect", a.t("重试", "Retry"), "↻", func() { a.activate(a.settings.ActiveID) })
 		}
-		a.iconButton(c, "add-server", a.t("添加服务器", "Add server"), "+", func() { a.editServer("") })
+		a.iconButton(c, "add-server", a.t("新建服务器", "New Server"), "+", func() { a.editServer("") })
 	})
 }
 func (a *App) activeName() string {
 	if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
-		return a.t("本机（受管）", "This Computer")
+		return a.t("本机", "This Computer")
 	}
 	for _, s := range a.settings.Servers {
 		if s.ID == a.settings.ActiveID {
@@ -166,11 +165,11 @@ func (a *App) phaseLabel() string {
 	case "active":
 		return a.t("已连接", "Connected")
 	case "connecting":
-		return a.t("连接中", "Connecting")
+		return a.t("连接中...", "Connecting...")
 	case "error":
-		return a.t("连接失败", "Disconnected")
+		return a.t("连接失败", "Connection failed")
 	}
-	return a.t("未连接", "Offline")
+	return a.t("不可用", "Unavailable")
 }
 func (a *App) streamBanner(c *ui.Context) {
 	if a.snapshot.Error != "" {
@@ -179,7 +178,7 @@ func (a *App) streamBanner(c *ui.Context) {
 	if a.snapshot.Phase == "connecting" {
 		ui.Row(c).Gap(10).Children(func() {
 			ui.Spinner(c).Size(15, 15)
-			a.label(c, a.t("正在连接实例…", "Connecting to instance…"))
+			a.label(c, a.t("连接中...", "Connecting..."))
 		})
 	}
 }
@@ -199,21 +198,23 @@ func (a *App) dialogs(c *ui.Context) {
 	a.profileForm(c)
 	a.cardManager(c)
 	ui.DialogBase(c.Key("error-dialog"), &a.errorOpen, func(back, panel ui.Element) {
+		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(16)
-		ui.Text(c, a.t("操作失败", "Error")).FontSize(20).Bold()
+		ui.Text(c, a.t("错误", "Error")).FontSize(20).Bold()
 		ui.Scroll(c).MaxHeight(300).Children(func() { ui.Text(c, a.errorText).Selectable().Font("monospace").FontSize(12) })
 		ui.Row(c).Gap(10).Justify(ui.End).Children(func() {
 			ui.Button(c, a.t("复制", "Copy")).OnClick(func() { services.WriteClipboard(a.errorText) })
-			ui.PrimaryButton(c, a.t("确定", "OK")).OnClick(func() { a.errorOpen = false })
+			ui.PrimaryButton(c, a.t("好", "Ok")).OnClick(func() { a.errorOpen = false })
 		})
 	})
 	ui.DialogBase(c.Key("confirm-dialog"), &a.confirmOpen, func(back, panel ui.Element) {
+		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(16)
 		ui.Text(c, a.confirmTitle).FontSize(20).Bold()
 		ui.Text(c, a.confirmMessage)
 		ui.Row(c).Justify(ui.End).Gap(10).Children(func() {
 			ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.confirmOpen = false })
-			ui.PrimaryButton(c, a.t("确认", "Confirm")).OnClick(func() {
+			ui.PrimaryButton(c, a.confirmButtonLabel()).OnClick(func() {
 				action := a.confirmAction
 				a.confirmOpen = false
 				a.confirmAction = nil
