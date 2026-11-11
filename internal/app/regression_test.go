@@ -37,6 +37,9 @@ func TestCoreStartDisconnectsOldRemoteImmediately(t *testing.T) {
 	a.settings.CorePath = "/nonexistent/boxpilot-test-sing-box"
 	a.manager = core.NewManager(a.root, nil)
 	a.coreState = core.State{Phase: "stopped"}
+	// This regression only checks the synchronous local-selection transition.
+	// Suppress the asynchronous start worker, which requires the MyGo main loop.
+	a.closing = true
 	a.startCore(false)
 	if a.settings.ActiveID != localID || a.client != nil {
 		t.Fatal("local selection still points to remote client")
