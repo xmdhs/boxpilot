@@ -25,6 +25,7 @@ type App struct {
 	root                         string
 	settings                     storage.Settings
 	win                          *mygo.Window
+	dispatchMain                 func(func())
 	desktop                      *desktop.Controller
 	manager                      core.Controller
 	life                         context.Context
@@ -204,6 +205,10 @@ func (a *App) post(fn func()) {
 	}
 	// The native window may be destroyed while the tray keeps the app alive.
 	// Continue applying stream/process state so a recreated view is current.
+	if a.dispatchMain != nil {
+		a.dispatchMain(update)
+		return
+	}
 	mygo.RunOnMain(update)
 }
 

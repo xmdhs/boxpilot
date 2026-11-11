@@ -21,8 +21,12 @@ func detectCPUCoreGroups() []CPUCoreGroup {
 	if err := getSystemCPUSetInformation.Find(); err != nil {
 		return nil
 	}
+	process, err := windows.GetCurrentProcess()
+	if err != nil {
+		return nil
+	}
 	var required uint32
-	_, _, _ = getSystemCPUSetInformation.Call(0, 0, uintptr(unsafe.Pointer(&required)), uintptr(windows.GetCurrentProcess()), 0)
+	_, _, _ = getSystemCPUSetInformation.Call(0, 0, uintptr(unsafe.Pointer(&required)), uintptr(process), 0)
 	if required < 24 || required > 16<<20 {
 		return nil
 	}
@@ -32,7 +36,7 @@ func detectCPUCoreGroups() []CPUCoreGroup {
 		uintptr(unsafe.Pointer(&buffer[0])),
 		uintptr(len(buffer)),
 		uintptr(unsafe.Pointer(&returned)),
-		uintptr(windows.GetCurrentProcess()),
+		uintptr(process),
 		0,
 	)
 	runtime.KeepAlive(buffer)

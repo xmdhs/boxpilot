@@ -23,6 +23,9 @@ func fixture(t *testing.T) *App {
 	s.Theme = "light"
 	s.ActiveID = localID
 	a := New(t.TempDir(), s)
+	// Unit tests have no MyGo event loop; drop UI callbacks instead of blocking
+	// workers in RunOnMain. Tests that need callback effects can dispatch them explicitly.
+	a.dispatchMain = func(func()) {}
 	t.Cleanup(func() { a.cancel(); a.workers.Wait(); a.flushSaves() })
 	a.client = &api.Client{}
 	a.snapshot = api.Snapshot{Phase: "active", Version: "1.14.4", APIVersion: 4, StartedAt: time.Now().Add(-time.Hour).UnixMilli(), ServiceStatus: &daemon.ServiceStatus{Status: daemon.ServiceStatus_STARTED}, Status: &daemon.Status{Memory: 45 << 20, Goroutines: 42, ConnectionsIn: 12, ConnectionsOut: 8, TrafficAvailable: true, Uplink: 420000, Downlink: 3400000, UplinkTotal: 125000000, DownlinkTotal: 920000000}, UploadHistory: []float64{1, 4, 2, 8, 6, 10, 4}, DownloadHistory: []float64{8, 4, 6, 3, 8, 12, 9}, Modes: []string{"rule", "global", "direct"}, CurrentMode: "rule", Groups: []*daemon.Group{{Tag: "Proxy", Type: "selector", Selectable: true, Selected: "Tokyo", IsExpand: true, Items: []*daemon.GroupItem{{Tag: "Tokyo", Type: "shadowsocks", UrlTestDelay: 46}, {Tag: "Singapore", Type: "vless", UrlTestDelay: 82}, {Tag: "Direct", Type: "direct"}}}}, Connections: []model.ConnectionRow{{Connection: &daemon.Connection{Id: "connection-1", Network: "tcp", Domain: "example.com", Destination: "93.184.216.34:443", Inbound: "mixed-in", InboundType: "mixed", Outbound: "Tokyo", CreatedAt: time.Now().Add(-time.Minute).UnixMilli()}, UplinkRate: 2048, DownlinkRate: 4096, UplinkTotal: 8000, DownlinkTotal: 16000}}, Logs: []model.LogEntry{{ID: 1, Level: daemon.LogLevel_INFO, Message: "Started local API"}, {ID: 2, Level: daemon.LogLevel_WARN, Message: "\x1b[33m网络连接重试\x1b[0m"}}, StreamErrors: map[string]string{}}
