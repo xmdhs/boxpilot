@@ -20,6 +20,9 @@ func (a *App) runningProfileName() string {
 func (a *App) selectProfile(profile core.Profile) {
 	a.settings.ProfileID = profile.ID
 	a.saveSettings()
+	if a.desktop != nil {
+		a.desktop.RefreshMenu()
+	}
 }
 
 func (a *App) profileInUse(id string) bool {

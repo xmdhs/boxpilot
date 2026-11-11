@@ -34,12 +34,14 @@ func (w *fakeWindow) IsMinimized() bool { return w.minimized }
 
 type fakeTray struct {
 	menu             *mygo.Menu
+	tooltip          string
 	click, right     func()
 	menus            []*mygo.Menu
 	destroys, popups int
 	duringPopup      func()
 }
 
+func (t *fakeTray) SetToolTip(tooltip string) { t.tooltip = tooltip }
 func (t *fakeTray) SetMenu(menu *mygo.Menu) {
 	t.menu = menu
 	t.menus = append(t.menus, menu)
@@ -259,6 +261,57 @@ func TestPrimaryClickShowsAndRightClickTemporaryMenu(t *testing.T) {
 		}
 		c.Destroy()
 	}
+}
+
+func TestTrayMenuShowsProfileAndGroupControls(t *testing.T) {
+	tray := &fakeTray{}
+	profiles := []MenuProfile{{ID: "local", Name: "Home", Selected: true}, {ID: "remote", Name: "Office"}}
+	groups := []MenuGroup{{Tag: "Proxy", Selected: "Tokyo", Selectable: true, Items: []MenuOutbound{{Tag: "Tokyo", Delay: 42, Selected: true}, {Tag: "Osaka", Delay: 110}}}}
+	selectedProfile, selectedGroup, selectedOutbound, tested := "", "", "", ""
+	c := newController(&fakeWindow{}, Callbacks{
+		ActiveName: func() string { return "Office server" }, Status: func() string { return "Connected" },
+		Profiles: func() []MenuProfile { return profiles },
+		SelectProfile: func(id string) {
+			selectedProfile = id
+			for i := range profiles {
+				profiles[i].Selected = profiles[i].ID == id
+			}
+		},
+		Groups:         func() []MenuGroup { return groups },
+		SelectOutbound: func(group, outbound string) { selectedGroup, selectedOutbound = group, outbound },
+		URLTest:        func(tag string) { tested = tag },
+	}, "linux", func() (trayPort, error) { return tray, nil })
+	c.SetTrayHostProbe(nil)
+	if err := c.Configure(true, true, true); err != nil {
+		t.Fatal(err)
+	}
+	if c.statusItem.Label != "Office server" || c.statusItem.Subtitle != "Connected" || tray.tooltip != "BoxPilot · Office server · Connected" {
+		t.Fatalf("missing active connection status: item=%+v tooltip=%q", c.statusItem, tray.tooltip)
+	}
+	profileItems := c.profilesItem.Submenu
+	if len(profileItems) != 2 || !profileItems[0].Checked || profileItems[1].Checked {
+		t.Fatalf("profile menu selection is wrong: %+v", profileItems)
+	}
+	profileItems[1].Click(nil, nil)
+	if selectedProfile != "remote" {
+		t.Fatalf("profile selection not dispatched: %q", selectedProfile)
+	}
+	group := c.groupsItem.Submenu[0]
+	if group.Label != "Proxy" || len(group.Submenu) != 4 {
+		t.Fatalf("group submenu malformed: %+v", group)
+	}
+	if group.Submenu[2].Subtitle != "42 ms" || !group.Submenu[2].Checked {
+		t.Fatal("group node status is missing")
+	}
+	group.Submenu[0].Click(nil, nil)
+	group.Submenu[3].Click(nil, nil)
+	if tested != "Proxy" || selectedGroup != "Proxy" || selectedOutbound != "Osaka" {
+		t.Fatalf("group actions not dispatched: test=%q select=%q/%q", tested, selectedGroup, selectedOutbound)
+	}
+	if tray.menu != c.menu {
+		t.Fatal("Linux persistent tray menu was not refreshed")
+	}
+	c.Destroy()
 }
 
 func TestMenuStateLanguageAndRemoteSafety(t *testing.T) {

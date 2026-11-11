@@ -14,16 +14,42 @@ import (
 // Callbacks execute synchronously on the UI/main thread. Quit should initiate
 // the application's asynchronous shutdown. Show is an optional notification
 // after the window has been restored/shown/focused; it must not call Show again.
+type MenuProfile struct {
+	ID       string
+	Name     string
+	Selected bool
+}
+
+type MenuOutbound struct {
+	Tag      string
+	Delay    int32
+	Selected bool
+}
+
+type MenuGroup struct {
+	Tag        string
+	Selected   string
+	Selectable bool
+	Items      []MenuOutbound
+}
+
 type Callbacks struct {
 	// EnsureWindow recreates the native UI window if it was destroyed while hidden.
 	EnsureWindow func()
 	// DestroyWindow releases the native window after tray hiding, while keeping the app alive.
-	DestroyWindow func()
-	Show          func()
-	Quit          func()
-	ToggleCore    func()
-	CoreRunning   func() bool
-	LocalActive   func() bool
+	DestroyWindow  func()
+	Show           func()
+	Quit           func()
+	ToggleCore     func()
+	CoreRunning    func() bool
+	LocalActive    func() bool
+	ActiveName     func() string
+	Status         func() string
+	Profiles       func() []MenuProfile
+	SelectProfile  func(string)
+	Groups         func() []MenuGroup
+	SelectOutbound func(group, outbound string)
+	URLTest        func(tag string)
 }
 
 type windowPort interface {
@@ -38,6 +64,7 @@ type windowPort interface {
 
 type trayPort interface {
 	SetMenu(*mygo.Menu)
+	SetToolTip(string)
 	PopUpMenu()
 	OnClick(func()) func()
 	OnRightClick(func()) func()
@@ -50,25 +77,28 @@ type trayFactory func() (trayPort, error)
 // are main-thread-only. New/Configure must run after App.WhenReady. No method
 // starts a goroutine or reads application callbacks from a worker.
 type Controller struct {
-	win         windowPort
-	cb          Callbacks
-	tray        trayPort
-	makeTray    trayFactory
-	platform    string
-	hostErr     error
-	enabled     bool
-	minimize    bool
-	close       bool
-	quitting    bool
-	destroyed   bool
-	hidden      bool
-	language    string
-	menu        *mygo.Menu
-	showItem    *mygo.MenuItem
-	toggleItem  *mygo.MenuItem
-	quitItem    *mygo.MenuItem
-	offMinimize func()
-	offClose    func()
+	win          windowPort
+	cb           Callbacks
+	tray         trayPort
+	makeTray     trayFactory
+	platform     string
+	hostErr      error
+	enabled      bool
+	minimize     bool
+	close        bool
+	quitting     bool
+	destroyed    bool
+	hidden       bool
+	language     string
+	menu         *mygo.Menu
+	statusItem   *mygo.MenuItem
+	showItem     *mygo.MenuItem
+	toggleItem   *mygo.MenuItem
+	profilesItem *mygo.MenuItem
+	groupsItem   *mygo.MenuItem
+	quitItem     *mygo.MenuItem
+	offMinimize  func()
+	offClose     func()
 }
 
 var ErrTrayHostNotProbed = errors.New("Linux tray host has not been probed")
@@ -271,41 +301,109 @@ func (c *Controller) Show() {
 	}
 }
 
-func (c *Controller) buildMenu() {
-	c.showItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) { c.Show() }}
-	c.toggleItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) {
-		// Recheck at activation: the selected server may have changed since
-		// RefreshMenu. A remote selection never controls the local core.
+func (c *Controller) buildMenu() { c.RefreshMenu() }
+
+// RefreshMenu reads application state only on the calling main thread. Call it
+// after local-core, profile, group or active-server state changes.
+func (c *Controller) RefreshMenu() {
+	if c.destroyed {
+		return
+	}
+	zh := strings.HasPrefix(strings.ToLower(c.language), "zh")
+	text := func(en, zhText string) string {
+		if zh {
+			return zhText
+		}
+		return en
+	}
+	running := c.cb.CoreRunning != nil && c.cb.CoreRunning()
+	local := c.cb.LocalActive != nil && c.cb.LocalActive()
+	label := text("Start local core", "启动本机核心")
+	if running {
+		label = text("Stop local core", "停止本机核心")
+	}
+	activeName := text("This Computer", "本机")
+	if c.cb.ActiveName != nil && c.cb.ActiveName() != "" {
+		activeName = c.cb.ActiveName()
+	}
+	status := text("Unavailable", "不可用")
+	if c.cb.Status != nil && c.cb.Status() != "" {
+		status = c.cb.Status()
+	}
+	c.statusItem = &mygo.MenuItem{Label: activeName, Subtitle: status, Disabled: true}
+	c.showItem = &mygo.MenuItem{Label: text("Open BoxPilot", "打开 BoxPilot"), Click: func(*mygo.MenuItem, *mygo.Window) { c.Show() }}
+	c.toggleItem = &mygo.MenuItem{Label: label, Disabled: !local || c.cb.ToggleCore == nil || c.quitting, Click: func(*mygo.MenuItem, *mygo.Window) {
 		if c.destroyed || c.quitting || c.cb.ToggleCore == nil || c.cb.LocalActive == nil || !c.cb.LocalActive() {
 			return
 		}
 		c.cb.ToggleCore()
 		c.RefreshMenu()
 	}}
-	c.quitItem = &mygo.MenuItem{Click: func(*mygo.MenuItem, *mygo.Window) { c.requestQuit() }}
-	c.menu = mygo.NewMenu([]*mygo.MenuItem{c.showItem, c.toggleItem, mygo.Separator(), c.quitItem})
-}
-
-// RefreshMenu reads application state only on the calling main thread. Call it
-// after the local-core state or active server changes (especially on Linux).
-func (c *Controller) RefreshMenu() {
-	if c.destroyed || c.menu == nil {
-		return
+	profiles := []*mygo.MenuItem{}
+	if c.cb.Profiles != nil {
+		for _, profile := range c.cb.Profiles() {
+			profile := profile
+			profiles = append(profiles, &mygo.MenuItem{Label: profile.Name, Type: mygo.MenuItemRadio, Checked: profile.Selected,
+				Disabled: c.quitting || profile.Selected || c.cb.SelectProfile == nil,
+				Click: func(*mygo.MenuItem, *mygo.Window) {
+					if !c.destroyed && !c.quitting && c.cb.SelectProfile != nil {
+						c.cb.SelectProfile(profile.ID)
+						c.RefreshMenu()
+					}
+				}})
+		}
 	}
-	running := c.cb.CoreRunning != nil && c.cb.CoreRunning()
-	local := c.cb.LocalActive != nil && c.cb.LocalActive()
-	show, start, stop, quit := "Show BoxPilot", "Start local core", "Stop local core", "Quit"
-	if strings.HasPrefix(strings.ToLower(c.language), "zh") {
-		show, start, stop, quit = "显示 BoxPilot", "启动本机核心", "停止本机核心", "退出"
+	if len(profiles) == 0 {
+		profiles = append(profiles, &mygo.MenuItem{Label: text("Empty profiles", "暂无配置"), Disabled: true})
 	}
-	label := start
-	if running {
-		label = stop
+	c.profilesItem = &mygo.MenuItem{Label: text("Profiles", "配置"), Submenu: profiles}
+	items := []*mygo.MenuItem{c.statusItem, mygo.Separator(), c.showItem, c.toggleItem, c.profilesItem}
+	groups := []MenuGroup(nil)
+	if c.cb.Groups != nil {
+		groups = c.cb.Groups()
 	}
-	c.showItem.SetLabel(show)
-	c.toggleItem.SetLabel(label)
-	c.toggleItem.SetEnabled(local && c.cb.ToggleCore != nil && !c.quitting)
-	c.quitItem.SetLabel(quit)
+	if len(groups) > 0 {
+		groupItems := make([]*mygo.MenuItem, 0, len(groups))
+		for _, group := range groups {
+			group := group
+			children := make([]*mygo.MenuItem, 0, len(group.Items)+2)
+			children = append(children, &mygo.MenuItem{Label: text("Test group", "测试此组"), Disabled: c.quitting || c.cb.URLTest == nil,
+				Click: func(*mygo.MenuItem, *mygo.Window) {
+					if !c.destroyed && !c.quitting && c.cb.URLTest != nil {
+						c.cb.URLTest(group.Tag)
+					}
+				}}, mygo.Separator())
+			for _, outbound := range group.Items {
+				outbound := outbound
+				label := outbound.Tag
+				subtitle := ""
+				if outbound.Delay > 0 {
+					subtitle = fmt.Sprintf("%d ms", outbound.Delay)
+				}
+				children = append(children, &mygo.MenuItem{Label: label, Subtitle: subtitle, Type: mygo.MenuItemRadio, Checked: outbound.Selected,
+					Disabled: c.quitting || !group.Selectable || outbound.Selected || c.cb.SelectOutbound == nil,
+					Click: func(*mygo.MenuItem, *mygo.Window) {
+						if !c.destroyed && !c.quitting && group.Selectable && c.cb.SelectOutbound != nil {
+							c.cb.SelectOutbound(group.Tag, outbound.Tag)
+						}
+					}})
+			}
+			groupItems = append(groupItems, &mygo.MenuItem{Label: group.Tag, Submenu: children})
+		}
+		c.groupsItem = &mygo.MenuItem{Label: text("Groups", "分组"), Submenu: groupItems}
+		items = append(items, c.groupsItem)
+	} else {
+		c.groupsItem = nil
+	}
+	c.quitItem = &mygo.MenuItem{Label: text("Quit", "退出"), Disabled: c.quitting, Click: func(*mygo.MenuItem, *mygo.Window) { c.requestQuit() }}
+	items = append(items, mygo.Separator(), c.quitItem)
+	c.menu = mygo.NewMenu(items)
+	if c.tray != nil {
+		c.tray.SetToolTip("BoxPilot · " + activeName + " · " + status)
+	}
+	if c.platform == "linux" && c.tray != nil {
+		c.tray.SetMenu(c.menu)
+	}
 }
 
 func (c *Controller) SetLanguage(language string) {

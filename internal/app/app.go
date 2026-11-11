@@ -116,7 +116,49 @@ func New(root string, s storage.Settings) *App {
 
 func (a *App) Open(loadErr error) {
 	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
-	a.desktop = desktop.New(a.win, desktop.Callbacks{EnsureWindow: a.ensureWindow, DestroyWindow: a.destroyWindowForTray, Quit: mygo.App.Quit, ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" }, LocalActive: func() bool { return a.settings.ActiveID == localID || a.settings.ActiveID == "" }})
+	a.desktop = desktop.New(a.win, desktop.Callbacks{
+		EnsureWindow: a.ensureWindow, DestroyWindow: a.destroyWindowForTray, Quit: mygo.App.Quit,
+		ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" },
+		LocalActive: func() bool { return a.settings.ActiveID == localID || a.settings.ActiveID == "" },
+		ActiveName:  a.activeName, Status: a.phaseLabel,
+		Profiles: func() []desktop.MenuProfile {
+			profiles := make([]desktop.MenuProfile, 0, len(a.profiles))
+			for _, p := range a.profiles {
+				profiles = append(profiles, desktop.MenuProfile{ID: p.ID, Name: p.Name, Selected: p.ID == a.settings.ProfileID})
+			}
+			return profiles
+		},
+		SelectProfile: func(id string) {
+			for _, p := range a.profiles {
+				if p.ID == id {
+					a.selectProfile(p)
+					return
+				}
+			}
+		},
+		Groups: func() []desktop.MenuGroup {
+			if a.client == nil || a.snapshot.Phase != "active" {
+				return nil
+			}
+			groups := make([]desktop.MenuGroup, 0, len(a.snapshot.Groups))
+			for _, g := range a.snapshot.Groups {
+				group := desktop.MenuGroup{Tag: g.GetTag(), Selected: g.GetSelected(), Selectable: g.GetSelectable()}
+				for _, item := range g.GetItems() {
+					group.Items = append(group.Items, desktop.MenuOutbound{Tag: item.GetTag(), Delay: item.GetUrlTestDelay(), Selected: item.GetTag() == g.GetSelected()})
+				}
+				groups = append(groups, group)
+			}
+			return groups
+		},
+		SelectOutbound: func(group, outbound string) {
+			a.rpc("tray-select-"+group, func(ctx context.Context, client *api.Client) error {
+				return client.SelectOutbound(ctx, group, outbound)
+			})
+		},
+		URLTest: func(tag string) {
+			a.rpc("tray-test-"+tag, func(ctx context.Context, client *api.Client) error { return client.URLTest(ctx, tag) })
+		},
+	})
 	a.applyAppearance()
 	// 托盘探测和凭据读取可能触及 D-Bus，放在 worker 中。
 	var trayProbeErr error
@@ -336,6 +378,9 @@ func (a *App) connect(server api.Server) {
 				if generation == a.generation {
 					a.confirmGroupExpansion(s.Groups)
 					a.snapshot = s
+					if a.desktop != nil {
+						a.desktop.RefreshMenu()
+					}
 				}
 			})
 		})
@@ -560,7 +605,13 @@ func (a *App) refreshLocal() {
 		}
 		profiles, err = core.Profiles(a.root)
 		return err
-	}, func() { a.installed = versions; a.profiles = profiles; a.updateDueRemoteProfiles() })
+	}, func() {
+		a.installed, a.profiles = versions, profiles
+		a.updateDueRemoteProfiles()
+		if a.desktop != nil {
+			a.desktop.RefreshMenu()
+		}
+	})
 }
 func (a *App) selectedProfile() (core.Profile, bool) {
 	for _, p := range a.profiles {
