@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/xmdhs/boxpilot/internal/core"
+	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func layoutControl(t *testing.T, tt *ui.Tester, role ui.Role, name string, width, height float32) ui.AccessInfo {
@@ -49,6 +50,49 @@ func TestNarrowPageActionsAndConnectionFilters(t *testing.T) {
 	}
 }
 
+func TestOverviewOnboardingShowsOnlyWhenNoServersOrProfiles(t *testing.T) {
+	for _, language := range []string{"zh-Hans", "en"} {
+		t.Run(language, func(t *testing.T) {
+			a := fixture(t)
+			a.settings.Language = language
+			for _, width := range []int{480, 1140} {
+				t.Run(fmt.Sprint(width), func(t *testing.T) {
+					a.settings.Servers = nil
+					a.profiles = nil
+					a.page = "overview"
+					tt := ui.NewTester(a.view, width, 640)
+					remote := a.t("连接远程服务器", "Connect to a remote server")
+					local := a.t("使用本机核心", "Set up a local core")
+					layoutControl(t, tt, ui.RoleButton, remote, float32(width), 640)
+					layoutControl(t, tt, ui.RoleButton, local, float32(width), 640)
+					if err := tt.Click(remote); err != nil || !a.serverDialog {
+						t.Fatalf("remote onboarding action failed: err=%v dialog=%t", err, a.serverDialog)
+					}
+					a.serverDialog = false
+					tt.Frame()
+					if err := tt.Click(local); err != nil || a.page != "core" {
+						t.Fatalf("local onboarding action failed: err=%v page=%q", err, a.page)
+					}
+				})
+			}
+		})
+	}
+
+	for _, configured := range []string{"server", "profile"} {
+		a := fixture(t)
+		switch configured {
+		case "server":
+			a.settings.Servers = []storage.Server{{ID: "remote", Name: "Remote", URL: "https://example.com"}}
+		case "profile":
+			a.profiles = []core.Profile{{ID: "local", Name: "Local", Type: "local"}}
+		}
+		tt := ui.NewTester(a.view, 800, 640)
+		if tt.HasText(a.t("开始使用 BoxPilot", "Get started with BoxPilot")) {
+			t.Fatalf("onboarding shown although a %s configuration exists", configured)
+		}
+	}
+}
+
 func TestOverviewCardsWrapByAvailableWidth(t *testing.T) {
 	for _, tc := range []struct {
 		width   int
@@ -56,6 +100,7 @@ func TestOverviewCardsWrapByAvailableWidth(t *testing.T) {
 	}{{480, 1}, {720, 2}, {721, 1}, {820, 1}, {1140, 2}} {
 		t.Run(fmt.Sprint(tc.width), func(t *testing.T) {
 			a := fixture(t)
+			a.settings.Servers = []storage.Server{{ID: "remote", Name: "Remote", URL: "https://example.com"}}
 			tt := ui.NewTester(a.view, tc.width, 1000)
 			upload, ok := tt.Find("Dashboard card: Upload")
 			if !ok || upload.W <= 0 {
@@ -95,6 +140,27 @@ func TestGroupsWrapWithinTheirContainer(t *testing.T) {
 	}
 }
 
+func TestRemoteProfileDialogExplainsFieldsAndFitsContent(t *testing.T) {
+	a := fixture(t)
+	a.profileType = "remote"
+	a.profileEditor = true
+	a.profileName = "Remote profile"
+	a.profileRemoteURL = "https://example.com/config.json"
+	tt := ui.NewTester(a.profileForm, 900, 780)
+	dialog, ok := tt.AccessByRole(ui.RoleDialog, "")
+	if !ok || dialog.Bounds.H >= 560 {
+		t.Fatalf("remote profile dialog should fit its contents: %+v", dialog.Bounds)
+	}
+	for _, label := range []string{
+		a.t("本地显示名称", "Local display name"),
+		a.t("远程配置 URL", "Remote profile URL"),
+	} {
+		if !tt.HasText(label) {
+			t.Fatalf("remote profile field description is not visible: %q", label)
+		}
+	}
+}
+
 func TestProfileSelectionDoesNotChangeRunningProfile(t *testing.T) {
 	for _, language := range []string{"en", "zh-Hans"} {
 		t.Run(language, func(t *testing.T) {
@@ -117,6 +183,9 @@ func TestProfileSelectionDoesNotChangeRunningProfile(t *testing.T) {
 			}
 			if a.settings.ProfileID != "next" || a.coreProfileID != "running" || a.runningProfileName() != "Running config" {
 				t.Fatal("selection replaced the actual running profile")
+			}
+			if a.errorOpen {
+				t.Fatal("selecting a profile displayed a notification")
 			}
 			if !tt.HasText(a.t("运行中", "Running")) || !tt.HasText(a.t("已选择 · 下次启动生效", "Selected · next start")) {
 				t.Fatal("running and pending selections are not distinguished")
@@ -202,11 +271,11 @@ func TestLogCopyFeedbackReportsFailure(t *testing.T) {
 				t.Fatal(err)
 			}
 			if fail {
-				if !a.errorOpen || a.notice != "" {
+				if !a.errorOpen {
 					t.Fatal("failed copy displayed success")
 				}
-			} else if a.notice != "Filtered logs copied" || !strings.Contains(tt.Clipboard(), "Started local API") || strings.Contains(tt.Clipboard(), "网络") {
-				t.Fatalf("copy feedback/content wrong: notice=%q clipboard=%q", a.notice, tt.Clipboard())
+			} else if a.errorOpen || !strings.Contains(tt.Clipboard(), "Started local API") || strings.Contains(tt.Clipboard(), "网络") {
+				t.Fatalf("copy should complete silently with filtered content: clipboard=%q", tt.Clipboard())
 			}
 		})
 	}

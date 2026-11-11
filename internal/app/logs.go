@@ -55,7 +55,6 @@ func (a *App) logs(c *ui.Context) {
 					a.fail(err)
 					return
 				}
-				a.notice = a.t("已复制当前筛选的日志", "Filtered logs copied")
 			})
 		}
 		ui.Button(c, a.t("清除日志", "Clear Logs")).Disabled(a.client == nil).OnClick(func() {

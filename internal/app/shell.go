@@ -27,12 +27,6 @@ func (a *App) view(c *ui.Context) {
 		}
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Children(func() {
 			a.toolbar(c, compact)
-			if a.notice != "" {
-				ui.Row(c).FillWidth().Padding(8, 20).Background(a.palette.soft).Gap(12).Children(func() {
-					ui.Text(c, a.notice).FontSize(12).Grow(1)
-					a.iconButton(c, "dismiss-notice", a.t("关闭", "Close"), "×", func() { a.notice = "" })
-				})
-			}
 			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(pagePadding).Gap(pageGap).Children(func() {
 				switch a.page {
 				case "overview":

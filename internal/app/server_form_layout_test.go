@@ -33,6 +33,16 @@ func serverFormScroll(t *testing.T, tt *ui.Tester, a *App, dy float32) ui.Rect {
 	return r
 }
 
+func TestNewServerDialogFitsContents(t *testing.T) {
+	a := fixture(t)
+	a.editServer("")
+	tt := ui.NewTester(a.serverForm, 1140, 780)
+	dialog := serverFormAccess(t, tt, ui.RoleDialog, "").Bounds
+	if dialog.H >= 560 {
+		t.Fatalf("new server dialog has excessive empty space: %+v", dialog)
+	}
+}
+
 func TestServerFormSmallWindowLayout(t *testing.T) {
 	for _, language := range []string{"en", "zh-Hans"} {
 		for _, dark := range []bool{false, true} {

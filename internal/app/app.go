@@ -46,7 +46,6 @@ type App struct {
 	jobs                         map[string]context.CancelFunc
 	errorText                    string
 	errorOpen                    bool
-	notice                       string
 	confirmOpen                  bool
 	confirmTitle, confirmMessage string
 	confirmButtonText            string
@@ -535,7 +534,7 @@ func (a *App) Destroy() {
 func (a *App) configureTray() {
 	if a.desktop != nil {
 		if err := a.desktop.Configure(a.settings.TrayEnabled, a.settings.MinimizeToTray, a.settings.CloseToTray); err != nil {
-			a.notice = err.Error()
+			a.fail(err)
 		}
 	}
 }
@@ -580,11 +579,11 @@ func (a *App) toggleCore() {
 }
 func (a *App) startCore(replace bool) {
 	if a.busy["remote-profile-restart"] {
-		a.notice = a.t("正在应用远程配置更新，请稍后再启动。", "Applying a remote profile update; try starting again shortly.")
+		a.fail(errors.New(a.t("正在应用远程配置更新，请稍后再启动。", "Applying a remote profile update; try starting again shortly.")))
 		return
 	}
 	if a.busy["cpu-core-detection"] {
-		a.notice = a.t("正在检测 CPU 核心类型，请稍后再启动。", "Detecting CPU core types; try starting the core again in a moment.")
+		a.fail(errors.New(a.t("正在检测 CPU 核心类型，请稍后再启动。", "Detecting CPU core types; try starting the core again in a moment.")))
 		return
 	}
 	if a.manager == nil {
@@ -598,7 +597,7 @@ func (a *App) startCore(replace bool) {
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
-		a.fail(errors.New(a.t("不可用", "Unavailable")))
+		a.fail(errors.New(a.t("核心未安装或未选择，请先安装或指定核心程序。", "Core is not installed or selected. Install or choose a core executable first.")))
 		a.page = "core"
 		return
 	}

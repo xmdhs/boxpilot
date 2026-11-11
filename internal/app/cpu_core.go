@@ -60,9 +60,7 @@ func (a *App) applyCPUCoreChoice() {
 	}
 	a.do("cpu-core-selection", func(ctx context.Context) error {
 		return manager.SetCPUSetIDs(ctx, ids)
-	}, func() {
-		a.notice = a.t("已更新本机 sing-box 的 CPU 调度偏好。", "Updated the CPU scheduling preference for the managed local sing-box.")
-	})
+	}, nil)
 }
 
 func (a *App) cpuCoreGroupLabel(group core.CPUCoreGroup) string {

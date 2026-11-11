@@ -25,6 +25,22 @@ func TestCoreReadyCannotReplaceNewerRemoteSelection(t *testing.T) {
 		t.Fatal("stale startup generation was accepted")
 	}
 }
+func TestStartingWithoutInstalledCoreExplainsWhatToDo(t *testing.T) {
+	a := fixture(t)
+	profile, err := core.SaveProfile(a.root, "", "test", core.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.profiles = []core.Profile{profile}
+	a.settings.ProfileID = profile.ID
+	a.settings.CorePath = ""
+	a.manager = core.NewManager(a.root, nil)
+	a.startCore(false)
+	if !a.errorOpen || !strings.Contains(a.errorText, a.t("核心未安装", "Core is not installed")) {
+		t.Fatalf("missing clear not-installed error: open=%t text=%q", a.errorOpen, a.errorText)
+	}
+}
+
 func TestCoreStartDisconnectsOldRemoteImmediately(t *testing.T) {
 	a := fixture(t)
 	a.settings.ActiveID = "remote-a"

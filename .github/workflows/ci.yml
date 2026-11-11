@@ -97,7 +97,8 @@ jobs:
             -platform "${{ matrix.goos }}/${{ matrix.goarch }}" \
             -skip-installer -skip-dmg \
             -o "dist" .
-          if [ "${{ matrix.goos }}" = linux ] || [ "${{ matrix.goos }}" = windows ]; then
+          if [ "${{ matrix.goos }}" = linux ] || \
+            { [ "${{ matrix.goos }}" = windows ] && [ "${{ matrix.goarch }}" != arm64 ]; }; then
             binary=$(find "dist/${{ matrix.goos }}-${{ matrix.goarch }}" -maxdepth 1 -type f \
               \( -iname 'boxpilot' -o -iname 'boxpilot.exe' \) -print -quit)
             if [ -z "$binary" ]; then

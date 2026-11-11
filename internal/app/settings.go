@@ -197,16 +197,17 @@ func (a *App) editServer(id string) {
 	a.serverDialog = true
 }
 func (a *App) serverForm(c *ui.Context) {
+	_, height := c.Size()
 	ui.DialogBase(c, &a.serverDialog, func(back, panel ui.Element) {
 		back.Background(ui.RGBA(0, 0, 0, .32))
-		panel.Width(480).MaxWidthPercent(94).Height(620).MaxHeightPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
+		panel.Width(480).MaxWidthPercent(94).MaxHeight(620).MaxHeightPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
 		serverTitle := a.t("新建服务器", "New Server")
 		if a.serverID != "" {
 			serverTitle = a.t("编辑服务器", "Edit Server")
 		}
 		ui.Text(c, serverTitle).FontSize(20).Bold().FillWidth().Shrink(0)
 		// 标题和操作区不参与收缩，长文案只占用中间的滚动区域。
-		ui.Scroll(c.Key("server-form-fields")).Grow(1).MinHeight(0).FillWidth().Label(a.t("服务器详情", "Server details")).Children(func() {
+		ui.Scroll(c.Key("server-form-fields")).MaxHeight(min(400, height-200)).MinHeight(0).FillWidth().Label(a.t("服务器详情", "Server details")).Children(func() {
 			ui.Column(c).FillWidth().Gap(14).Shrink(0).Children(func() {
 				a.field(c, a.t("名称", "Name"), func() {
 					ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("名称", "Name"))
@@ -295,7 +296,7 @@ func (a *App) probeServer() {
 		}
 		defer client.Close()
 		return client.Probe(ctx)
-	}, func() { a.notice = a.t("可用", "Available") })
+	}, nil)
 }
 func (a *App) saveServer() {
 	if a.storageBlocked || a.closing {

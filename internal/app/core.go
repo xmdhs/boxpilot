@@ -151,9 +151,6 @@ func (a *App) checkReleases() {
 	}, func() {
 		a.releases = releases
 		a.releaseChoice = ""
-		if len(releases) == 0 {
-			a.notice = a.t("不可用", "Unavailable")
-		}
 	})
 }
 func (a *App) installCore() {
@@ -191,7 +188,6 @@ func (a *App) installCore() {
 		a.settings.CorePath = installed.Path
 		a.saveSettings()
 		a.refreshLocal()
-		a.notice = a.t("完成", "Done")
 	})
 }
 func (a *App) browseCore() {
@@ -213,7 +209,6 @@ func (a *App) inspectCore() {
 	a.do("inspect", func(ctx context.Context) error { var err error; installed, err = core.Inspect(ctx, path); return err }, func() {
 		a.settings.CorePath = installed.Path
 		a.saveSettings()
-		a.notice = a.t("可用", "Available")
 	})
 }
 func (a *App) editProfile(p core.Profile) {
@@ -297,9 +292,16 @@ func (a *App) closeProfile() {
 }
 func (a *App) profileForm(c *ui.Context) {
 	width, height := c.Size()
+	nameLabel := a.t("名称", "Name")
+	if a.profileType == "remote" {
+		nameLabel = a.t("本地显示名称", "Local display name")
+	}
 	dialog := ui.DialogBase(c, &a.profileEditor, func(back, panel ui.Element) {
 		back.Background(ui.RGBA(0, 0, 0, .32))
-		panel.Width(min(900, width-32)).Height(min(700, height-32)).Padding(22).Radius(20).Background(a.palette.card).Gap(12)
+		panel.Width(min(900, width-32)).MaxHeight(min(700, height-32)).Padding(22).Radius(20).Background(a.palette.card).Gap(12)
+		if a.profileType != "remote" {
+			panel.Height(min(700, height-32))
+		}
 		ui.Row(c).FillWidth().Children(func() {
 			title := a.t("编辑内容", "Edit Content")
 			if a.profileType == "remote" {
@@ -308,13 +310,18 @@ func (a *App) profileForm(c *ui.Context) {
 			ui.Text(c, title).FontSize(20).Bold().Grow(1)
 			a.iconButton(c, "close-editor", a.t("关闭", "Close"), "×", a.closeProfile)
 		})
-		if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Label(a.t("名称", "Name")).Changed() {
-			a.profileDirty = true
-		}
 		if a.profileType == "remote" {
-			if ui.TextInput(c.Key("profile-remote-url"), &a.profileRemoteURL).Disabled(a.busy["save-profile"]).FillWidth().Label(a.t("URL", "URL")).Changed() {
-				a.profileDirty = true
-			}
+			a.field(c, nameLabel, func() {
+				if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Placeholder(a.t("留空时使用 URL 主机名", "Defaults to the URL hostname when empty")).Label(a.t("名称", "Name")).Changed() {
+					a.profileDirty = true
+				}
+			})
+			urlLabel := a.t("远程配置 URL", "Remote profile URL")
+			a.field(c, urlLabel, func() {
+				if ui.TextInput(c.Key("profile-remote-url"), &a.profileRemoteURL).Disabled(a.busy["save-profile"]).FillWidth().Placeholder("https://example.com/config.json").Label(a.t("URL", "URL")).Changed() {
+					a.profileDirty = true
+				}
+			})
 			autoUpdate := a.profileAutoUpdate
 			ui.Checkbox(c, &a.profileAutoUpdate, a.t("自动更新", "Auto Update"))
 			if autoUpdate != a.profileAutoUpdate {
@@ -329,6 +336,9 @@ func (a *App) profileForm(c *ui.Context) {
 				a.line(c, a.t("最后更新", "Last Updated"), a.profileLastUpdated.Format("2006-01-02 15:04"))
 			}
 		} else {
+			if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Label(nameLabel).Changed() {
+				a.profileDirty = true
+			}
 			if ui.TextArea(c.Key("profile-content-"+a.profileID), &a.profileContent).Disabled(a.busy["save-profile"]).Font("monospace").FontSize(12).Grow(1).FillWidth().Label(a.t("配置", "Configuration")).Changed() {
 				a.profileDirty = true
 			}
@@ -374,7 +384,6 @@ func (a *App) saveProfile() {
 		a.settings.ProfileID = profile.ID
 		a.saveSettings()
 		a.refreshLocal()
-		a.notice = a.t("完成", "Done")
 	})
 }
 func (a *App) checkProfile() {
@@ -393,7 +402,7 @@ func (a *App) checkProfile() {
 		}
 		_, err = core.Check(ctx, binary, path)
 		return err
-	}, func() { a.notice = a.t("完成", "Done") })
+	}, nil)
 }
 
 var _ = strings.TrimSpace

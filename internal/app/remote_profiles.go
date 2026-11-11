@@ -156,7 +156,6 @@ func (a *App) saveRemoteProfile() {
 		a.settings.ProfileID = saved.ID
 		a.saveSettings()
 		a.refreshLocal()
-		a.notice = a.t("完成", "Done")
 	})
 }
 
@@ -187,7 +186,7 @@ func (a *App) updateRemoteProfile(profile core.Profile) {
 		jobKey := key
 		if restart {
 			if a.busy["remote-profile-restart"] || a.busy["core-start"] || a.busy["core-stop"] {
-				a.notice = a.t("核心正在切换状态，本次更新尚未应用。", "The core is changing state; this update has not been applied.")
+				a.fail(errors.New(a.t("核心正在切换状态，本次更新尚未应用。", "The core is changing state; this update has not been applied.")))
 				return
 			}
 			jobKey = "remote-profile-restart"
@@ -214,7 +213,6 @@ func (a *App) updateRemoteProfile(profile core.Profile) {
 					break
 				}
 			}
-			a.notice = a.t("完成", "Done")
 		})
 	})
 }

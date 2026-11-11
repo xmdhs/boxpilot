@@ -32,6 +32,16 @@ func (a *App) overview(c *ui.Context) {
 	a.pageTitle(c, "概述", "Overview", func() {
 		a.iconButton(c, "manage-cards", a.t("仪表项目", "Dashboard Items"), "⚙", func() { a.cardDialog = true })
 	})
+	if len(a.settings.Servers) == 0 && len(a.profiles) == 0 {
+		a.card(c, a.t("开始使用 BoxPilot", "Get started with BoxPilot"), func() {
+			ui.Text(c, a.t("选择一种方式连接 sing-box。设置远程服务器，或使用本机核心。", "Choose a way to connect to sing-box: add a remote server or set up a local core.")).TextColor(a.palette.muted).FillWidth()
+			ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
+				ui.PrimaryButton(c, a.t("连接远程服务器", "Connect to a remote server")).OnClick(func() { a.editServer("") })
+				ui.Button(c, a.t("使用本机核心", "Set up a local core")).OnClick(func() { a.page = "core" })
+			})
+		})
+		return
+	}
 	if a.client == nil {
 		a.card(c, "", func() {
 			ui.Row(c).Gap(10).Wrap().Children(func() {

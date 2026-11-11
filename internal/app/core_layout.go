@@ -20,11 +20,6 @@ func (a *App) runningProfileName() string {
 func (a *App) selectProfile(profile core.Profile) {
 	a.settings.ProfileID = profile.ID
 	a.saveSettings()
-	if a.coreState.Phase == "running" && a.coreProfileID != profile.ID {
-		a.notice = a.t("已选择配置；当前运行不变，下次启动时生效。", "Profile selected; the running core is unchanged. It takes effect on the next start.")
-	} else {
-		a.notice = a.t("已选择配置", "Profile selected")
-	}
 }
 
 func (a *App) profileInUse(id string) bool {
@@ -60,50 +55,67 @@ func (a *App) deleteProfile(profile core.Profile) {
 func (a *App) profileRow(c *ui.Context, profile core.Profile) {
 	selected := profile.ID == a.settings.ProfileID
 	running := profile.ID == a.coreProfileID && a.coreState.Phase == "running"
-	ui.Column(c.Key(profile.ID)).FillWidth().MinWidth(0).Gap(10).PaddingY(10).Children(func() {
-		ui.Text(c, profile.Name).SingleLine().Tooltip(profile.Name).Bold()
-		ui.Row(c).FillWidth().Gap(8).Wrap().Children(func() {
-			if running {
-				a.pill(c, a.t("运行中", "Running"), a.palette.good)
-			}
-			if selected {
-				label := a.t("已选择", "Selected")
-				if a.coreState.Phase == "running" && !running {
-					label = a.t("已选择 · 下次启动生效", "Selected · next start")
+	background := a.palette.card
+	border := a.palette.border
+	if selected {
+		background = a.palette.soft
+		border = a.palette.accent.Alpha(.35)
+	}
+
+	ui.Row(c.Key("profile-row-"+profile.ID)).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(8).Padding(10).Radius(12).Background(background).Border(1, border).Children(func() {
+		selectLabel := a.t("选择配置", "Select Profile") + ": " + profile.Name
+		selectButton := ui.ButtonBase(c.Key("profile-select-" + profile.ID)).FillWidth().Grow(1).MinWidth(0).Padding(4).Radius(8).Label(selectLabel).Tooltip(selectLabel)
+		if selectButton.Hovered() {
+			selectButton.Background(a.palette.hover)
+		}
+		selectButton.Children(func() {
+			ui.Row(c).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(12).Children(func() {
+				if selected {
+					ui.Text(c, "✓").Width(20).TextColor(a.palette.accent).FontSize(18).Bold().Center()
+				} else {
+					ui.Box(c).Size(18, 18).Radius(999).Border(1, a.palette.border)
 				}
-				a.pill(c, label, a.palette.accent)
+				ui.Column(c).Grow(1).MinWidth(0).Gap(5).Children(func() {
+					ui.Text(c, profile.Name).SingleLine().Tooltip(profile.Name).Bold()
+					ui.Row(c).FillWidth().MinWidth(0).Gap(8).Wrap().AlignItems(ui.Center).Children(func() {
+						if running {
+							a.pill(c, a.t("运行中", "Running"), a.palette.good)
+						}
+						if selected && a.coreState.Phase == "running" && !running {
+							a.pill(c, a.t("已选择 · 下次启动生效", "Selected · next start"), a.palette.accent)
+						}
+						if profile.Type == "remote" {
+							updated := a.t("尚未更新", "Not updated yet")
+							if !profile.LastUpdated.IsZero() {
+								updated = profile.LastUpdated.Format("2006-01-02 15:04")
+							}
+							a.label(c, a.t("远程", "Remote")+" · "+updated)
+						} else {
+							a.label(c, a.t("本地", "Local"))
+						}
+					})
+				})
+			})
+		})
+		selectButton.OnClick(func() { a.selectProfile(profile) })
+		ui.PopoverMenuButton(c.Key("profile-actions-"+profile.ID), a.t("更多", "More"), func(m *ui.Menu) {
+			m.MaxWidth(260)
+			if m.Item(a.t("编辑配置", "Edit Profile")).Chosen() {
+				a.editProfile(profile)
 			}
 			if profile.Type == "remote" {
-				updated := a.t("尚未更新", "Not updated yet")
-				if !profile.LastUpdated.IsZero() {
-					updated = profile.LastUpdated.Format("2006-01-02 15:04")
+				if m.Item(a.t("更新配置", "Update Profile")).Disabled(a.busy["remote-update-"+profile.ID] || a.busy["remote-profile-restart"]).Chosen() {
+					a.updateRemoteProfile(profile)
 				}
-				a.label(c, a.t("远程", "Remote")+" · "+updated)
 			}
-		})
-		ui.Row(c).FillWidth().Gap(8).Wrap().Children(func() {
-			label := a.t("选择", "Select")
-			if selected {
-				label = a.t("已选择", "Selected")
+			if m.Item(a.t("复制配置", "Duplicate Profile")).Disabled(a.busy["copy-profile"]).Chosen() {
+				a.duplicateProfile(profile)
 			}
-			ui.Button(c, label).Label(a.t("选择配置", "Select Profile") + ": " + profile.Name).Disabled(selected).OnClick(func() { a.selectProfile(profile) })
-			ui.Button(c, a.t("编辑", "Edit")).Label(a.t("编辑配置", "Edit Profile") + ": " + profile.Name).OnClick(func() { a.editProfile(profile) })
-			ui.PopoverMenuButton(c.Key("profile-actions-"+profile.ID), a.t("更多", "More"), func(m *ui.Menu) {
-				m.MaxWidth(260)
-				if profile.Type == "remote" {
-					if m.Item(a.t("更新配置", "Update Profile")).Disabled(a.busy["remote-update-"+profile.ID] || a.busy["remote-profile-restart"]).Chosen() {
-						a.updateRemoteProfile(profile)
-					}
-				}
-				if m.Item(a.t("复制配置", "Duplicate Profile")).Disabled(a.busy["copy-profile"]).Chosen() {
-					a.duplicateProfile(profile)
-				}
-				m.Separator()
-				if m.Item(a.t("删除配置", "Delete Profile")).Danger().Disabled(a.profileInUse(profile.ID) || a.busy["delete-profile"]).Chosen() {
-					a.deleteProfile(profile)
-				}
-			}).Label(a.t("配置操作", "Profile actions") + ": " + profile.Name)
-		})
+			m.Separator()
+			if m.Item(a.t("删除配置", "Delete Profile")).Danger().Disabled(a.profileInUse(profile.ID) || a.busy["delete-profile"]).Chosen() {
+				a.deleteProfile(profile)
+			}
+		}).Label(a.t("配置操作", "Profile actions") + ": " + profile.Name)
 	})
 }
 

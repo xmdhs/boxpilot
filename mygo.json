@@ -3,6 +3,7 @@
   "identifier": "app.boxpilot.desktop",
   "version": "0.1.0",
   "icon": "resources/icon.png",
+  "resourcesExclude": ["icon.png"],
   "out": "build",
   "urlSchemes": ["sing-box"],
   "linux": {
