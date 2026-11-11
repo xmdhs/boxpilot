@@ -15,6 +15,9 @@ import (
 	"github.com/tailscale/hujson"
 )
 
+// 在不可信 JSONC 进入 hujson 的递归解析器前限制嵌套深度。
+const maxConfigDepth = 256
+
 var profileMu sync.Mutex
 var profileIDPattern = regexp.MustCompile(`^[a-f0-9]{48}$`)
 
@@ -24,6 +27,9 @@ func DefaultConfig() string {
 func parseConfig(content []byte) (map[string]json.RawMessage, error) {
 	if int64(len(content)) > maxConfigSize {
 		return nil, errors.New("configuration too large")
+	}
+	if err := checkConfigDepth(content); err != nil {
+		return nil, err
 	}
 	standard, err := hujson.Standardize(content)
 	if err != nil {
@@ -38,6 +44,66 @@ func parseConfig(content []byte) (map[string]json.RawMessage, error) {
 	}
 	return config, nil
 }
+
+// checkConfigDepth 非递归预扫描嵌套深度，不替代 JSON 语法校验。
+// 字符串、转义字符及注释中的括号不计入深度，后续仍由 hujson 检查语法。
+func checkConfigDepth(content []byte) error {
+	const (
+		normal = iota
+		quoted
+		lineComment
+		blockComment
+	)
+	state, depth := normal, 0
+	for i := 0; i < len(content); i++ {
+		c := content[i]
+		switch state {
+		case quoted:
+			if c == '\\' {
+				i++ // 跳过被转义的字节，包括引号和反斜杠。
+			} else if c == '"' {
+				state = normal
+			}
+		case lineComment:
+			if c == '\n' {
+				state = normal
+			}
+		case blockComment:
+			if c == '*' && i+1 < len(content) && content[i+1] == '/' {
+				i++
+				state = normal
+			}
+		default:
+			switch c {
+			case '"':
+				state = quoted
+			case '/':
+				if i+1 < len(content) {
+					switch content[i+1] {
+					case '/':
+						state = lineComment
+						i++
+					case '*':
+						state = blockComment
+						i++
+					}
+				}
+			case '{', '[':
+				depth++
+				if depth > maxConfigDepth {
+					return fmt.Errorf("invalid JSONC: nesting depth exceeds %d", maxConfigDepth)
+				}
+			case '}', ']':
+				if depth == 0 {
+					return errors.New("invalid JSONC: unexpected closing delimiter")
+				}
+				depth--
+			}
+		}
+	}
+	return nil
+}
+
 func profileBase(root string) (string, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -270,5 +336,13 @@ func deriveConfig(content []byte, port int, secret string, allowAPIReplace bool)
 	if err != nil {
 		return nil, err
 	}
-	return json.MarshalIndent(config, "", "  ")
+	// 运行副本不需要缩进；深层数组经缩进可能把小输入放大数百倍。
+	derived, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(derived)) > maxConfigSize {
+		return nil, errors.New("derived configuration too large")
+	}
+	return derived, nil
 }

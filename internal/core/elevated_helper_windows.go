@@ -3,6 +3,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,21 +39,81 @@ type elevatedCoreResult struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// 每次启动独立的手动复位事件既是取消信号，也是启动凭证。迟到的 helper
+// 必须先打开此事件；所有者关闭事件后，启动将被拒绝。取消和停止均不依赖
+// 文件写入或 helper 命令锁。
+type elevatedCancelEvent struct {
+	mu     sync.Mutex
+	handle windows.Handle
+}
+
+func (e *elevatedCancelEvent) signal() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.handle == 0 {
+		return nil
+	}
+	return windows.SetEvent(e.handle)
+}
+
+func (e *elevatedCancelEvent) close() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.handle != 0 {
+		_ = windows.CloseHandle(e.handle)
+		e.handle = 0
+	}
+}
+
+func processCreationTime(handle windows.Handle) (uint64, error) {
+	var creation, exit, kernel, user windows.Filetime
+	err := windows.GetProcessTimes(handle, &creation, &exit, &kernel, &user)
+	return uint64(creation.HighDateTime)<<32 | uint64(creation.LowDateTime), err
+}
+
+func openHelperOwner(identity string) (windows.Handle, error) {
+	pidText, creationText, ok := strings.Cut(identity, ":")
+	pid, pidErr := strconv.ParseUint(pidText, 10, 32)
+	creation, creationErr := strconv.ParseUint(creationText, 10, 64)
+	if !ok || pidErr != nil || creationErr != nil || pid == 0 {
+		return 0, errors.New("invalid elevated helper owner identity")
+	}
+	owner, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return 0, fmt.Errorf("open elevated helper owner: %w", err)
+	}
+	actual, err := processCreationTime(owner)
+	if err != nil || actual != creation {
+		_ = windows.CloseHandle(owner)
+		return 0, errors.New("elevated helper owner no longer exists")
+	}
+	return owner, nil
+}
+
+func helperMayRun(owner, cancelEvent windows.Handle) bool {
+	// 校验创建时间后持有真实进程句柄，避免 PID 复用改变旧 helper 的所有者。
+	ownerState, ownerErr := windows.WaitForSingleObject(owner, 0)
+	cancelState, cancelErr := windows.WaitForSingleObject(cancelEvent, 0)
+	return ownerErr == nil && cancelErr == nil && ownerState == uint32(windows.WAIT_TIMEOUT) && cancelState == uint32(windows.WAIT_TIMEOUT)
+}
+
 type elevatedWindowsProcess struct {
-	handle    windows.Handle
-	pid       int
-	ipcDir    string
-	once      sync.Once
-	waitErr   error
-	done      chan struct{}
-	requestMu sync.Mutex
-	sequence  uint64
+	handle      windows.Handle
+	cancelEvent *elevatedCancelEvent
+	pid         int
+	ipcDir      string
+	once        sync.Once
+	waitErr     error
+	done        chan struct{}
+	requestMu   sync.Mutex
+	sequence    uint64
 }
 
 func (p *elevatedWindowsProcess) PID() int { return p.pid }
 
 func (p *elevatedWindowsProcess) Wait() error {
 	p.once.Do(func() {
+		defer p.cancelEvent.close()
 		defer windows.CloseHandle(p.handle)
 		defer close(p.done)
 		_, p.waitErr = windows.WaitForSingleObject(p.handle, windows.INFINITE)
@@ -73,7 +134,7 @@ func (p *elevatedWindowsProcess) GracefulStop() error {
 }
 
 func (p *elevatedWindowsProcess) Kill() error {
-	return p.request(elevatedCoreCommand{Action: "kill"}, false)
+	return p.cancelEvent.signal()
 }
 
 func (p *elevatedWindowsProcess) SetCPUSetIDs(ids []uint32) error {
@@ -142,10 +203,29 @@ func RunElevatedCoreHelper(args []string) (bool, int, error) {
 	if len(args) == 0 || args[0] != elevatedCoreHelperArgument {
 		return false, 0, nil
 	}
-	if len(args) < 5 {
+	if len(args) < 7 {
 		return true, 1, errors.New("invalid elevated core helper arguments")
 	}
-	ipcDir, binary, workingDir := args[1], args[3], args[4]
+	// 协议依次为目录、取消凭证、所有者 PID:创建时间、CPU Sets、
+	// 核心路径、工作目录及核心参数。
+	ipcDir, binary, workingDir := args[1], args[5], args[6]
+	eventName, err := windows.UTF16PtrFromString(args[2])
+	if err != nil {
+		return true, 1, err
+	}
+	cancelEvent, err := windows.OpenEvent(windows.SYNCHRONIZE, false, eventName)
+	if err != nil {
+		return true, 1, fmt.Errorf("open elevated launch cancellation event: %w", err)
+	}
+	defer windows.CloseHandle(cancelEvent)
+	owner, err := openHelperOwner(args[3])
+	if err != nil {
+		return true, 1, err
+	}
+	defer windows.CloseHandle(owner)
+	if !helperMayRun(owner, cancelEvent) {
+		return true, 1, context.Canceled
+	}
 	if !filepath.IsAbs(ipcDir) || !filepath.IsAbs(binary) || !filepath.IsAbs(workingDir) {
 		return true, 1, errors.New("elevated core helper paths must be absolute")
 	}
@@ -157,15 +237,25 @@ func RunElevatedCoreHelper(args []string) (bool, int, error) {
 	if err != nil {
 		return true, 1, err
 	}
-	cpuSetIDs, err := parseCPUSetIDs(args[2])
+	cpuSetIDs, err := parseCPUSetIDs(args[4])
 	if err != nil {
 		return true, 1, err
 	}
-	command := exec.Command(binary, args[5:]...)
+	command := exec.Command(binary, args[7:]...)
 	command.Dir = workingDir
 	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP, HideWindow: true}
+	if !helperMayRun(owner, cancelEvent) {
+		return true, 1, context.Canceled
+	}
 	if err = command.Start(); err != nil {
 		return true, 1, fmt.Errorf("start elevated sing-box: %w", err)
+	}
+	// 取消可能与 CreateProcess 竞争；即使尚未公布 PID，也只终止并回收
+	// 此次启动实际持有句柄的子进程。
+	if !helperMayRun(owner, cancelEvent) {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+		return true, 1, context.Canceled
 	}
 	pid := command.Process.Pid
 	if len(cpuSetIDs) > 0 {
@@ -196,6 +286,14 @@ func RunElevatedCoreHelper(args []string) (bool, int, error) {
 			_ = os.Remove(resultPath)
 			return true, processExitCode(waitErr), nil
 		case <-ticker.C:
+			if !helperMayRun(owner, cancelEvent) {
+				_ = command.Process.Kill()
+				waitErr := <-wait
+				_ = os.Remove(pidPath)
+				_ = os.Remove(commandPath)
+				_ = os.Remove(resultPath)
+				return true, processExitCode(waitErr), nil
+			}
 			commandData, readErr := os.ReadFile(commandPath)
 			if errors.Is(readErr, fs.ErrNotExist) {
 				continue
@@ -256,7 +354,12 @@ func processExitCode(err error) int {
 	return 1
 }
 
-func startElevatedCoreProcess(path string, args []string, dir string, cpuSetIDs []uint32) (managedProcess, error) {
+func startElevatedCoreProcess(ctx context.Context, path string, args []string, dir string, cpuSetIDs []uint32) (managedProcess, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if _, err := binaryPath(path); err != nil {
 		return nil, err
 	}
@@ -264,6 +367,28 @@ func startElevatedCoreProcess(path string, args []string, dir string, cpuSetIDs 
 	if err != nil {
 		return nil, fmt.Errorf("locate BoxPilot executable for elevated core launch: %w", err)
 	}
+	token, err := randomID()
+	if err != nil {
+		return nil, err
+	}
+	eventName := `Local\BoxPilot-core-` + token
+	eventNamePtr, _ := windows.UTF16PtrFromString(eventName)
+	eventHandle, err := windows.CreateEvent(nil, 1, 0, eventNamePtr)
+	if err != nil {
+		return nil, fmt.Errorf("create elevated launch cancellation event: %w", err)
+	}
+	cancelEvent := &elevatedCancelEvent{handle: eventHandle}
+	transferred := false
+	defer func() {
+		if !transferred {
+			cancelEvent.close()
+		}
+	}()
+	creation, err := processCreationTime(windows.CurrentProcess())
+	if err != nil {
+		return nil, fmt.Errorf("identify elevated helper owner: %w", err)
+	}
+	ownerIdentity := strconv.Itoa(os.Getpid()) + ":" + strconv.FormatUint(creation, 10)
 	verb, _ := syscall.UTF16PtrFromString("runas")
 	file, err := syscall.UTF16PtrFromString(executable)
 	if err != nil {
@@ -277,7 +402,7 @@ func startElevatedCoreProcess(path string, args []string, dir string, cpuSetIDs 
 	if idsArg == "" {
 		idsArg = "-"
 	}
-	helperArgs := []string{elevatedCoreHelperArgument, dir, idsArg, path, dir}
+	helperArgs := []string{elevatedCoreHelperArgument, dir, eventName, ownerIdentity, idsArg, path, dir}
 	helperArgs = append(helperArgs, args...)
 	var command strings.Builder
 	for i, arg := range helperArgs {
@@ -304,45 +429,70 @@ func startElevatedCoreProcess(path string, args []string, dir string, cpuSetIDs 
 	info.lpParameters = parameters
 	info.lpDirectory = workingDirectory
 	info.nShow = swHide
-	proc := syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteExW")
-	ok, _, callErr := proc.Call(uintptr(unsafe.Pointer(&info)))
-	if ok == 0 {
-		if errno, isErrno := callErr.(syscall.Errno); isErrno && errno == errorCancelled {
-			return nil, errors.New("administrator approval was canceled")
+	started, err := startProcessContext(ctx, func() (managedProcess, error) {
+		owned := false
+		defer func() {
+			if !owned {
+				_ = cancelEvent.signal()
+				cancelEvent.close()
+			}
+		}()
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("start elevated sing-box helper: %w", callErr)
-	}
-	if info.hProcess == 0 {
-		return nil, errors.New("Windows did not return the elevated helper process handle")
-	}
-	deadline := time.NewTimer(30 * time.Second)
-	defer deadline.Stop()
-	ticker := time.NewTicker(25 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		if data, readErr := os.ReadFile(pidPath); readErr == nil {
-			pid, parseErr := strconv.Atoi(strings.TrimSpace(string(data)))
-			if parseErr == nil && pid > 0 {
-				return &elevatedWindowsProcess{handle: info.hProcess, pid: pid, ipcDir: dir, done: make(chan struct{})}, nil
+		// Go context 无法中断 ShellExecuteExW/UAC；相关内存与迟到的
+		// 进程句柄始终由此 goroutine 持有。
+		proc := syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteExW")
+		ok, _, callErr := proc.Call(uintptr(unsafe.Pointer(&info)))
+		var p *elevatedWindowsProcess
+		if info.hProcess != 0 {
+			p = &elevatedWindowsProcess{handle: info.hProcess, cancelEvent: cancelEvent, ipcDir: dir, done: make(chan struct{})}
+			owned = true
+		}
+		if ok == 0 {
+			var launchErr error
+			if errno, isErrno := callErr.(syscall.Errno); isErrno && errno == errorCancelled {
+				launchErr = errors.New("administrator approval was canceled")
+			} else {
+				launchErr = fmt.Errorf("start elevated sing-box helper: %w", callErr)
+			}
+			if p != nil {
+				return p, launchErr
+			}
+			return nil, launchErr
+		}
+		if p == nil {
+			return nil, errors.New("Windows did not return the elevated helper process handle")
+		}
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			if err := ctx.Err(); err != nil {
+				return p, err
+			}
+			if data, readErr := os.ReadFile(pidPath); readErr == nil {
+				pid, parseErr := strconv.Atoi(strings.TrimSpace(string(data)))
+				if parseErr == nil && pid > 0 {
+					p.pid = pid
+					return p, nil
+				}
+			}
+			wait, waitErr := windows.WaitForSingleObject(p.handle, 0)
+			if waitErr != nil {
+				return p, fmt.Errorf("check elevated sing-box helper: %w", waitErr)
+			}
+			if wait == windows.WAIT_OBJECT_0 {
+				var code uint32
+				_ = windows.GetExitCodeProcess(p.handle, &code)
+				return p, fmt.Errorf("elevated sing-box helper exited during startup (code %d)", code)
+			}
+			select {
+			case <-ctx.Done():
+				return p, ctx.Err()
+			case <-ticker.C:
 			}
 		}
-		wait, waitErr := windows.WaitForSingleObject(info.hProcess, 0)
-		if waitErr != nil {
-			windows.CloseHandle(info.hProcess)
-			return nil, fmt.Errorf("check elevated sing-box helper: %w", waitErr)
-		}
-		if wait == windows.WAIT_OBJECT_0 {
-			var code uint32
-			_ = windows.GetExitCodeProcess(info.hProcess, &code)
-			windows.CloseHandle(info.hProcess)
-			return nil, fmt.Errorf("elevated sing-box helper exited during startup (code %d)", code)
-		}
-		select {
-		case <-deadline.C:
-			_ = windows.TerminateProcess(info.hProcess, 1)
-			windows.CloseHandle(info.hProcess)
-			return nil, errors.New("timed out waiting for elevated sing-box startup")
-		case <-ticker.C:
-		}
-	}
+	}, func() { _ = cancelEvent.signal() })
+	transferred = started != nil
+	return started, err
 }

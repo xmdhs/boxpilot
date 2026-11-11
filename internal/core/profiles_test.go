@@ -134,6 +134,89 @@ func TestAPIConflictAndInvalidConfig(t *testing.T) {
 		t.Fatal("unsafe default")
 	}
 }
+func TestParseConfigDepthBoundaries(t *testing.T) {
+	// Fixtures stop at one past the limit; do not feed resource-exhausting
+	// depths into the recursive JSONC parser, even in a regression test.
+	for _, kind := range []string{"arrays", "objects", "mixed"} {
+		for _, depth := range []int{maxConfigDepth - 1, maxConfigDepth, maxConfigDepth + 1} {
+			var input strings.Builder
+			input.WriteString(`{"value":`)
+			closing := "}"
+			for i := 1; i < depth; i++ {
+				if kind == "objects" || (kind == "mixed" && i%2 == 0) {
+					input.WriteString(`{"value":`)
+					closing = "}" + closing
+				} else {
+					input.WriteByte('[')
+					closing = "]" + closing
+				}
+			}
+			input.WriteByte('0')
+			input.WriteString(closing)
+			_, err := parseConfig([]byte(input.String()))
+			if depth <= maxConfigDepth && err != nil {
+				t.Fatalf("%s depth %d: %v", kind, depth, err)
+			}
+			if depth > maxConfigDepth && (err == nil || !strings.Contains(err.Error(), "nesting depth")) {
+				t.Fatalf("%s depth %d: want depth rejection, got %v", kind, depth, err)
+			}
+		}
+	}
+	// An incomplete document must hit our guard before hujson's EOF error.
+	if _, err := parseConfig([]byte(strings.Repeat("[", maxConfigDepth+1))); err == nil || !strings.Contains(err.Error(), "nesting depth") {
+		t.Fatalf("preflight did not reject excessive nesting: %v", err)
+	}
+}
+
+func TestParseConfigDepthJSONCLexing(t *testing.T) {
+	brackets := strings.Repeat("[{", maxConfigDepth+1)
+	closers := strings.Repeat("]}", maxConfigDepth+1)
+	// 覆盖引号前奇数或偶数个反斜杠、字符串中的注释标记，
+	// 以及注释中的引号、反斜杠和注释标记。
+	value := `quote: " backslash: \ escaped quote: \" // /* */ ` + brackets + closers
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range []string{
+		`{"value":` + string(encoded) + `}`,
+		"// \" \\ /* " + brackets + "\r\n{\"value\":" + string(encoded) + ", // " + closers + "\n}\n",
+		"/* \" \\ // " + brackets + " */ {\"value\":" + string(encoded) + ", /* " + closers + " */}\n",
+		`{"value":"ends in backslash\\", "next":[]}`,
+	} {
+		if _, err := parseConfig([]byte(input)); err != nil {
+			t.Fatalf("valid JSONC rejected: %v", err)
+		}
+	}
+	config, err := parseConfig([]byte(`{"value":` + string(encoded) + `}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded string
+	if err := json.Unmarshal(config["value"], &decoded); err != nil || decoded != value {
+		t.Fatalf("string changed: %q, %v", decoded, err)
+	}
+	// 注释或字符串中的结束括号不能减少真实嵌套深度。
+	for _, prefix := range []string{
+		"/* " + closers + " */",
+		"// " + closers + "\n",
+		`{"ignored":"` + closers + `", "value":`,
+	} {
+		input := prefix + strings.Repeat("[", maxConfigDepth+1) + "0" + strings.Repeat("]", maxConfigDepth+1)
+		if strings.HasPrefix(prefix, "{") {
+			input += "}"
+		}
+		if _, err := parseConfig([]byte(input)); err == nil || !strings.Contains(err.Error(), "nesting depth") {
+			t.Fatalf("hidden closers bypassed depth guard: %v", err)
+		}
+	}
+	for _, input := range []string{`{"x":"unterminated`, `{"x":"trailing\`, `{} /* unterminated`, "{} // no newline", `{"x": /}`, `{"x":[}`, `}{`, `{"x":"bad\q"}`} {
+		if _, err := parseConfig([]byte(input)); err == nil {
+			t.Fatalf("malformed JSONC accepted: %q", input)
+		}
+	}
+}
+
 func TestProfileRejectsSymlinksAndCorruption(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink privilege dependent")

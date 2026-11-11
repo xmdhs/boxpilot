@@ -136,8 +136,11 @@ func (a *App) settingsView(c *ui.Context) {
 			a.card(c, a.t("服务器", "Servers"), func() {
 				for _, s := range a.settings.Servers {
 					s := s
-					ui.Row(c.Key(s.ID)).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-						ui.Column(c).Grow(1).Gap(4).Children(func() { ui.Text(c, s.Name); a.label(c, s.URL).Selectable() })
+					ui.Row(c.Key(s.ID)).FillWidth().Gap(10).AlignItems(ui.Center).Wrap().Children(func() {
+						ui.Column(c).Grow(1).MinWidth(180).MaxWidthPercent(100).Gap(4).Children(func() {
+							ui.Text(c, s.Name).FillWidth()
+							a.label(c, s.URL).FillWidth().Selectable()
+						})
 						ui.Button(c, a.t("连接", "Connect")).OnClick(func() { a.activate(s.ID); a.page = "overview" })
 						ui.Button(c, a.t("编辑服务器", "Edit Server")).OnClick(func() { a.editServer(s.ID) })
 					})
@@ -196,40 +199,50 @@ func (a *App) editServer(id string) {
 func (a *App) serverForm(c *ui.Context) {
 	ui.DialogBase(c, &a.serverDialog, func(back, panel ui.Element) {
 		back.Background(ui.RGBA(0, 0, 0, .32))
-		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
+		panel.Width(480).MaxWidthPercent(94).Height(620).MaxHeightPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
 		serverTitle := a.t("新建服务器", "New Server")
 		if a.serverID != "" {
 			serverTitle = a.t("编辑服务器", "Edit Server")
 		}
-		ui.Text(c, serverTitle).FontSize(20).Bold()
-		a.field(c, a.t("名称", "Name"), func() {
-			ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("名称", "Name"))
-		})
-		a.field(c, a.t("URL", "URL"), func() { ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label(a.t("URL", "URL")) })
-		a.field(c, a.t("密钥", "Secret"), func() {
-			ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(a.t("密钥", "Secret"))
-		})
-		a.field(c, a.t("密钥", "Secret"), func() {
-			ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(a.t("密钥", "Secret"))
-		})
-		a.label(c, a.t("session：仅本次；keychain：系统凭据库；file：明文文件。", "session: this session; keychain: system credential store; file: plaintext."))
-		if a.serverRemember == "file" {
-			ui.Checkbox(c, &a.serverFileConsent, a.t("我同意将密钥明文保存到本机受限权限文件", "I consent to plaintext storage in a private local file"))
-		}
-		if insecureRemote(a.serverURL) {
-			ui.Text(c, a.t("警告：此地址使用明文 HTTP，密钥可能被网络窃听。", "Warning: HTTP may expose your secret to network observers.")).TextColor(a.palette.danger).FontSize(12)
-			ui.Checkbox(c, &a.serverHTTPConsent, a.t("我了解并允许此明文连接", "I understand and allow this plaintext connection"))
-		}
-		ui.Row(c).Gap(10).Wrap().Children(func() {
-			if a.serverID != "" {
-				ui.Button(c, a.t("删除", "Delete")).TextColor(a.palette.danger).OnClick(func() {
-					a.confirm(a.t("删除", "Delete"), a.serverName, func() { a.deleteServer() })
+		ui.Text(c, serverTitle).FontSize(20).Bold().FillWidth().Shrink(0)
+		// 标题和操作区不参与收缩，长文案只占用中间的滚动区域。
+		ui.Scroll(c.Key("server-form-fields")).Grow(1).MinHeight(0).FillWidth().Label(a.t("服务器详情", "Server details")).Children(func() {
+			ui.Column(c).FillWidth().Gap(14).Shrink(0).Children(func() {
+				a.field(c, a.t("名称", "Name"), func() {
+					ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("名称", "Name"))
 				})
-			}
-			ui.Button(c, a.t("连接", "Connect")).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
-			ui.Spacer(c)
-			ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.serverDialog = false })
-			ui.PrimaryButton(c, a.t("保存", "Save")).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
+				a.field(c, a.t("URL", "URL"), func() { ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label(a.t("URL", "URL")) })
+				a.field(c, a.t("密钥", "Secret"), func() {
+					ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(a.t("密钥", "Secret"))
+				})
+				a.field(c, a.t("保存方式", "Storage mode"), func() {
+					ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(a.t("保存方式", "Storage mode"))
+				})
+				a.label(c, a.t("session：仅本次；keychain：系统凭据库；file：明文文件。", "session: this session; keychain: system credential store; file: plaintext.")).FillWidth()
+				if a.serverRemember == "file" {
+					ui.Checkbox(c, &a.serverFileConsent, a.t("我同意将密钥明文保存到本机受限权限文件", "I consent to plaintext storage in a private local file")).FillWidth()
+				}
+				if insecureRemote(a.serverURL) {
+					ui.Text(c, a.t("警告：此地址使用明文 HTTP，密钥可能被网络窃听。", "Warning: HTTP may expose your secret to network observers.")).TextColor(a.palette.danger).FontSize(12).FillWidth()
+					ui.Checkbox(c, &a.serverHTTPConsent, a.t("我了解并允许此明文连接", "I understand and allow this plaintext connection")).FillWidth()
+				}
+			})
+		})
+		// 分成两行，避免小窗口内测试连接、删除与保存操作互相挤压。
+		ui.Column(c).FillWidth().Gap(10).Shrink(0).Children(func() {
+			ui.Row(c).FillWidth().Gap(10).Children(func() {
+				if a.serverID != "" {
+					ui.Button(c, a.t("删除", "Delete")).TextColor(a.palette.danger).OnClick(func() {
+						a.confirm(a.t("删除", "Delete"), a.serverName, func() { a.deleteServer() })
+					})
+				}
+				ui.Button(c, a.t("测试连接", "Test connection")).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
+			})
+			ui.Row(c).FillWidth().Gap(10).Children(func() {
+				ui.Spacer(c)
+				ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.serverDialog = false })
+				ui.PrimaryButton(c, a.t("保存", "Save")).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
+			})
 		})
 	})
 }
@@ -285,6 +298,9 @@ func (a *App) probeServer() {
 	}, func() { a.notice = a.t("可用", "Available") })
 }
 func (a *App) saveServer() {
+	if a.storageBlocked || a.closing {
+		return
+	}
 	server, err := a.formServer()
 	if err != nil {
 		a.fail(err)
@@ -308,12 +324,7 @@ func (a *App) saveServer() {
 		if err := storage.SaveSecret(a.root, server.ID, server.Secret, mode); err != nil {
 			return err
 		}
-		if oldMode != "" && oldMode != mode {
-			if err := storage.DeleteSecret(a.root, server.ID, oldMode); err != nil {
-				_ = storage.DeleteSecret(a.root, server.ID, mode)
-				return fmt.Errorf("无法移除旧凭据存储，未切换保存模式：%w", err)
-			}
-		}
+		// 保留旧存储直到新的 Remember 设置真正落盘；退出丢弃回调也不丢旧密钥。
 		return nil
 	}, func() {
 		a.secretCache[server.ID] = server.Secret
@@ -329,12 +340,26 @@ func (a *App) saveServer() {
 			a.settings.Servers = append(a.settings.Servers, entry)
 		}
 		a.serverDialog = false
-		a.saveSettings()
+		// 直到落盘及旧凭据清理完成前，禁止再次迁移到可能被清理的存储。
+		a.busy["save-server"] = true
+		a.queueSettingsTransaction(a.settings, func() error {
+			if oldMode != "" && oldMode != mode {
+				if err := storage.DeleteSecret(a.root, server.ID, oldMode); err != nil {
+					return fmt.Errorf("新凭据和设置已保存，但清理旧凭据失败：%w", err)
+				}
+			}
+			return nil
+		}, func(error) {
+			a.post(func() { delete(a.busy, "save-server") })
+		})
 		a.activate(server.ID)
 		a.page = "overview"
 	})
 }
 func (a *App) deleteServer() {
+	if a.busy["save-server"] || a.storageBlocked || a.closing {
+		return
+	}
 	id := a.serverID
 	mode := "session"
 	for _, server := range a.settings.Servers {

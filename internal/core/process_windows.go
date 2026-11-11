@@ -3,6 +3,7 @@
 package core
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -16,9 +17,12 @@ type windowsCommandProcess struct {
 	cmd *exec.Cmd
 }
 
-func startCoreProcess(path string, args []string, dir string, output io.Writer, elevated bool, cpuSetIDs []uint32) (managedProcess, error) {
+func startCoreProcess(ctx context.Context, path string, args []string, dir string, output io.Writer, elevated bool, cpuSetIDs []uint32) (managedProcess, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if elevated {
-		return startElevatedCoreProcess(path, args, dir, cpuSetIDs)
+		return startElevatedCoreProcess(ctx, path, args, dir, cpuSetIDs)
 	}
 	cmd := exec.Command(path, args...)
 	cmd.Dir = dir
@@ -26,10 +30,15 @@ func startCoreProcess(path string, args []string, dir string, output io.Writer, 
 	cmd.Stderr = output
 	cmd.WaitDelay = time.Second
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	return &windowsCommandProcess{cmd: cmd}, nil
+	return startProcessContext(ctx, func() (managedProcess, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		return &windowsCommandProcess{cmd: cmd}, nil
+	}, func() {})
 }
 
 func (p *windowsCommandProcess) PID() int            { return p.cmd.Process.Pid }

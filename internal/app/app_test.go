@@ -96,7 +96,7 @@ func TestLogPauseFreezesBoundedSnapshot(t *testing.T) {
 	a := fixture(t)
 	a.page = "logs"
 	tt := ui.NewTester(a.view, 1140, 780)
-	if err := tt.Click("Pause scrolling"); err != nil {
+	if err := tt.Click("Pause updates"); err != nil {
 		t.Fatal(err)
 	}
 	a.snapshot.Logs = append(a.snapshot.Logs, model.LogEntry{ID: 3, Level: daemon.LogLevel_INFO, Message: "new message"})
@@ -104,7 +104,7 @@ func TestLogPauseFreezesBoundedSnapshot(t *testing.T) {
 	if tt.HasText("new message") {
 		t.Fatal("paused view changed")
 	}
-	if err := tt.Click("Resume scrolling"); err != nil {
+	if err := tt.Click("Resume updates"); err != nil {
 		t.Fatal(err)
 	}
 	if !tt.HasText("new message") {

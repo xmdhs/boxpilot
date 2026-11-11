@@ -38,6 +38,7 @@ type Manager struct {
 	startTimeout time.Duration
 	stopTimeout  time.Duration
 	elevated     bool
+	startProcess processStarter
 }
 
 func NewManager(root string, publish func(State)) *Manager {
@@ -49,7 +50,7 @@ func NewElevatedManager(root string, publish func(State)) *Manager {
 }
 
 func newManager(root string, publish func(State), elevated bool) *Manager {
-	return &Manager{root: root, publish: publish, state: State{Phase: "stopped"}, probe: probeAPI, startTimeout: 30 * time.Second, stopTimeout: 3 * time.Second, elevated: elevated}
+	return &Manager{root: root, publish: publish, state: State{Phase: "stopped"}, probe: probeAPI, startTimeout: 30 * time.Second, stopTimeout: 3 * time.Second, elevated: elevated, startProcess: startCoreProcess}
 }
 func (m *Manager) snapshotLocked() State {
 	s := m.state
@@ -157,7 +158,12 @@ func (m *Manager) terminateRun(r *managedRun) {
 				return
 			default:
 			}
-			_ = proc.GracefulStop()
+			if err := proc.GracefulStop(); err != nil {
+				// 提权 helper 无法接收控制台信号，立即触发取消事件，
+				// 不让停止或取消继续等待整个优雅退出超时。
+				_ = proc.Kill()
+				return
+			}
 			timer := time.NewTimer(m.stopTimeout)
 			defer timer.Stop()
 			select {
@@ -253,27 +259,16 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	if err = startup.Err(); err != nil {
 		return fail(err)
 	}
-	proc, err := startCoreProcess(installed.Path, []string{"run", "-c", config}, r.dir, &r.output, m.elevated, startupCPUSetIDs)
-	if err != nil {
+	proc, err := m.startProcess(startup, installed.Path, []string{"run", "-c", config}, r.dir, &r.output, m.elevated, startupCPUSetIDs)
+	if proc == nil {
 		return fail(err)
 	}
 	m.mu.Lock()
 	r.proc = proc
-	if startup.Err() != nil || r.stopping {
-		m.mu.Unlock()
-		_ = proc.Kill()
-		err = proc.Wait()
-		m.mu.Lock()
-		r.waitErr = err
-		close(r.exited)
-		m.mu.Unlock()
-		return fail(context.Canceled)
-	}
-	m.state.Phase = "starting"
-	m.state.PID = proc.PID()
-	m.notifyLocked()
 	m.mu.Unlock()
 	go func() {
+		// 启动失败后仍可能持有未返回的 ShellExecute 调用，
+		// 此处也是迟到 helper 句柄的唯一等待者。
 		err := proc.Wait()
 		m.mu.Lock()
 		r.waitErr = err
@@ -287,6 +282,33 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 			m.finish(r, err)
 		}
 	}()
+	if err != nil {
+		// 及时返回取消错误，但在迟到进程被终止并回收前保留运行目录和忙碌状态。
+		// Stop 等待 finished，而不是等待已经取消的 Start 调用方。
+		m.mu.Lock()
+		if !r.stopping {
+			m.state.Phase = "error"
+			m.state.Error = redact(err.Error(), secret)
+			m.notifyLocked()
+		}
+		m.mu.Unlock()
+		go func() {
+			m.terminateRun(r)
+			<-r.exited
+			m.finish(r, err)
+		}()
+		return err
+	}
+	m.mu.Lock()
+	if startup.Err() != nil || r.stopping {
+		m.mu.Unlock()
+		_ = proc.Kill()
+		return fail(contextError(startup, context.Canceled))
+	}
+	m.state.Phase = "starting"
+	m.state.PID = proc.PID()
+	m.notifyLocked()
+	m.mu.Unlock()
 	if !m.elevated && len(startupCPUSetIDs) > 0 {
 		if err := setProcessCPUSetIDs(proc.PID(), startupCPUSetIDs); err != nil {
 			return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))

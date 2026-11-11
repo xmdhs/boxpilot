@@ -30,11 +30,10 @@ func (a *App) visibleLogs() []model.LogEntry {
 	return result
 }
 func (a *App) logs(c *ui.Context) {
-	services := c.Services()
 	a.pageTitle(c, "日志", "Logs", func() {
-		pause := a.t("暂停滚动", "Pause scrolling")
+		pause := a.t("暂停更新", "Pause updates")
 		if a.logsPaused {
-			pause = a.t("恢复滚动", "Resume scrolling")
+			pause = a.t("恢复更新", "Resume updates")
 		}
 		ui.Button(c, pause).OnClick(func() {
 			a.logsPaused = !a.logsPaused
@@ -45,23 +44,42 @@ func (a *App) logs(c *ui.Context) {
 				a.logList.ScrollToEnd()
 			}
 		})
-		ui.Button(c, a.t("到剪贴板", "To Clipboard")).OnClick(func() {
+		if ui.Button(c, a.t("复制日志", "Copy logs")).Clicked() {
 			var b strings.Builder
 			for _, e := range a.visibleLogs() {
 				b.WriteString(a.redactSensitive(plainLog(e.Message)))
 				b.WriteByte('\n')
 			}
-			services.WriteClipboard(b.String())
-		})
+			c.WriteClipboardThen(b.String(), func(err error) {
+				if err != nil {
+					a.fail(err)
+					return
+				}
+				a.notice = a.t("已复制当前筛选的日志", "Filtered logs copied")
+			})
+		}
 		ui.Button(c, a.t("清除日志", "Clear Logs")).Disabled(a.client == nil).OnClick(func() {
 			a.confirm(a.t("清除日志", "Clear Logs"), "", func() {
 				a.rpc("clear-logs", func(ctx context.Context, client *api.Client) error { return client.ClearLogs(ctx) })
 			})
 		})
 	})
+	if a.logsPaused {
+		a.label(c, a.t("日志更新已暂停，当前显示冻结快照；恢复后显示最新日志。", "Updates are paused. This is a frozen snapshot; resume to see the latest logs."))
+	}
 	ui.Row(c).FillWidth().Gap(12).Children(func() {
-		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).Label(a.t("搜索", "Search"))
-		ui.Select(c.Key("log-level"), &a.logLevel, []string{"all", "PANIC", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}).Width(110).Label(a.t("日志级别", "Log level"))
+		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).MinWidth(0).Label(a.t("搜索", "Search"))
+		all := a.t("全部", "All")
+		level := a.logLevel
+		if level == "all" {
+			level = all
+		}
+		if ui.Select(c.Key("log-level"), &level, []string{all, "PANIC", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}).Width(110).Shrink(0).Label(a.t("日志级别", "Log level")).Changed() {
+			a.logLevel = level
+			if level == all {
+				a.logLevel = "all"
+			}
+		}
 	})
 	a.unsupported(c, "logs")
 	entries := a.visibleLogs()

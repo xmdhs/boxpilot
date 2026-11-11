@@ -64,17 +64,10 @@ func FetchRemoteConfig(ctx context.Context, raw string) (string, error) {
 }
 
 func UpdateRemoteProfile(root string, profile Profile, content string, updatedAt time.Time) (Profile, bool, error) {
-	if profile.Type != "remote" {
-		return Profile{}, false, errors.New("profile is not remote")
-	}
-	previous, err := ReadProfile(profile)
+	update, err := PrepareRemoteProfileUpdate(root, profile, content, updatedAt)
 	if err != nil {
 		return Profile{}, false, err
 	}
-	profile.LastUpdated = updatedAt
-	updated, err := SaveProfileWithMetadata(root, profile, profile.Name, content)
-	if err != nil {
-		return Profile{}, false, err
-	}
-	return updated, previous != content, nil
+	updated, err := update.Commit()
+	return updated, update.Changed(), err
 }

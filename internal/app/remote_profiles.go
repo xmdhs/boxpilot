@@ -116,6 +116,7 @@ func (a *App) saveRemoteProfile() {
 		}
 	}
 	var saved core.Profile
+	binary := a.settings.CorePath
 	a.do("save-profile", func(ctx context.Context) error {
 		candidate := metadata
 		var content string
@@ -141,6 +142,11 @@ func (a *App) saveRemoteProfile() {
 			}
 			candidate.LastUpdated = existing.LastUpdated
 		}
+		if binary != "" && (existing == nil || existing.RemoteURL != candidate.RemoteURL) {
+			if err := core.ValidateConfigContent(ctx, binary, content, true); err != nil {
+				return err
+			}
+		}
 		var saveErr error
 		saved, saveErr = core.SaveProfileWithMetadata(a.root, candidate, name, content)
 		return saveErr
@@ -155,32 +161,61 @@ func (a *App) saveRemoteProfile() {
 }
 
 func (a *App) updateRemoteProfile(profile core.Profile) {
+	if a.busy["remote-profile-restart"] {
+		return
+	}
 	key := "remote-update-" + profile.ID
-	var updated core.Profile
-	var contentChanged bool
+	binary := a.settings.CorePath
+	var update *core.RemoteProfileUpdate
 	a.do(key, func(ctx context.Context) error {
 		content, err := core.FetchRemoteConfig(ctx, profile.RemoteURL)
 		if err != nil {
 			return err
 		}
-		updated, contentChanged, err = core.UpdateRemoteProfile(a.root, profile, content, time.Now())
-		return err
-	}, func() {
-		for i := range a.profiles {
-			if a.profiles[i].ID == updated.ID {
-				a.profiles[i] = updated
-				break
-			}
+		update, err = core.PrepareRemoteProfileUpdate(a.root, profile, content, time.Now())
+		if err != nil {
+			return err
 		}
-		if contentChanged && a.settings.ProfileID == profile.ID && a.coreState.Phase == "running" {
-			a.do("remote-profile-restart", func(ctx context.Context) error {
-				ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
-				defer cancel()
-				return a.manager.Stop(ctx)
-			}, func() { a.startCore(false) })
+		if binary != "" && update.Changed() {
+			return update.Validate(ctx, binary, true)
+		}
+		return nil
+	}, func() {
+		manager := a.manager
+		allowAPIReplace := a.coreAPIReplace
+		restart := update.Changed() && manager != nil && a.coreProfileID == profile.ID && a.coreState.Phase == "running"
+		jobKey := key
+		if restart {
+			if a.busy["remote-profile-restart"] || a.busy["core-start"] || a.busy["core-stop"] {
+				a.notice = a.t("核心正在切换状态，本次更新尚未应用。", "The core is changing state; this update has not been applied.")
+				return
+			}
+			jobKey = "remote-profile-restart"
+		}
+		cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()
+		if restart && !validCPUChoice {
+			a.fail(errors.New(a.t("核心类型已不可用，请重新选择。", "The selected CPU core type is no longer available.")))
 			return
 		}
-		a.notice = a.t("完成", "Done")
+		var updated core.Profile
+		a.do(jobKey, func(ctx context.Context) error {
+			var err error
+			if restart {
+				updated, err = update.Restart(ctx, manager, binary, allowAPIReplace, cpuSetIDs)
+			} else if err = ctx.Err(); err == nil {
+				updated, err = update.Commit()
+			}
+			return err
+		}, func() {
+			for i := range a.profiles {
+				p := a.profiles[i]
+				if p.ID == profile.ID && p.Name == profile.Name && p.RemoteURL == profile.RemoteURL && p.AutoUpdate == profile.AutoUpdate && p.AutoUpdateInterval == profile.AutoUpdateInterval && p.LastUpdated.Equal(profile.LastUpdated) {
+					a.profiles[i] = updated
+					break
+				}
+			}
+			a.notice = a.t("完成", "Done")
+		})
 	})
 }
 

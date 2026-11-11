@@ -201,13 +201,19 @@ func install(ctx context.Context, root string, r Release, progress func(int64, i
 	} else if !os.IsNotExist(err) {
 		return Installed{}, err
 	}
-	// A cross-process exclusive lock prevents a concurrent install replacing a live version.
-	lock, err := os.OpenFile(filepath.Join(versions, "."+version+".lock"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	// 系统在句柄关闭或进程退出时释放锁。保留文件，避免另一安装器
+	// 通过重新创建路径锁住不同 inode，破坏跨进程互斥。
+	lock, err := acquireInstallLock(filepath.Join(versions, "."+version+".lock"))
 	if err != nil {
 		return Installed{}, fmt.Errorf("install lock: %w", err)
 	}
-	lock.Close()
-	defer os.Remove(lock.Name())
+	defer lock.Close()
+	// 前一个安装器可能在首次检查与获锁之间已经完成安装。
+	if _, err = os.Lstat(dest); err == nil {
+		return Installed{}, ErrAlreadyInstalled
+	} else if !os.IsNotExist(err) {
+		return Installed{}, err
+	}
 	downloadDir, err := os.MkdirTemp(versions, ".download-*")
 	if err != nil {
 		return Installed{}, err

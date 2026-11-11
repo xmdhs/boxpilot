@@ -20,7 +20,7 @@ func (a *App) view(c *ui.Context) {
 	a.palette = makePalette(dark, a.settings.Accent)
 	c.SetTheme(a.palette.theme)
 	width, _ := c.Size()
-	compact := width <= 720
+	compact := width <= compactBreakpoint
 	ui.Row(c).Fill().Background(a.palette.bg).Children(func() {
 		if !compact {
 			a.sidebar(c)
@@ -33,7 +33,7 @@ func (a *App) view(c *ui.Context) {
 					a.iconButton(c, "dismiss-notice", a.t("关闭", "Close"), "×", func() { a.notice = "" })
 				})
 			}
-			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(24).Gap(18).Children(func() {
+			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(pagePadding).Gap(pageGap).Children(func() {
 				switch a.page {
 				case "overview":
 					a.overview(c)
@@ -57,7 +57,7 @@ func (a *App) view(c *ui.Context) {
 		ui.Overlay(c, func() {
 			back := ui.Row(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .3)).Modal()
 			back.Children(func() {
-				panel := ui.Column(c).Width(250).FillHeight().Children(func() { a.sidebar(c) })
+				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Children(func() { a.sidebar(c) })
 				if panel.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 					a.compactMenu = false
 				}
@@ -77,7 +77,7 @@ func (a *App) view(c *ui.Context) {
 
 func (a *App) sidebar(c *ui.Context) {
 	p := a.palette
-	ui.Column(c).Width(232).Shrink(0).FillHeight().Background(p.surface).Padding(16, 12).Gap(6).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
+	ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().Background(p.surface).Padding(16, 12).Gap(6).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
 		ui.Column(c).Padding(12, 14, 26).Gap(2).Children(func() {
 			ui.Text(c, "BoxPilot").Font("Source Serif 4, Georgia, serif").FontSize(23).FontWeight(560)
 		})
@@ -128,7 +128,7 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 				choice = choices[i]
 			}
 		}
-		if ui.Select(c.Key("active-server"), &choice, choices).Width(230).Label(a.t("服务器", "Servers")).Changed() {
+		if ui.Select(c.Key("active-server"), &choice, choices).Grow(1).MinWidth(100).MaxWidth(230).Label(a.t("服务器", "Servers")).Changed() {
 			for i, label := range choices {
 				if label == choice {
 					a.activate(ids[i])
@@ -183,13 +183,22 @@ func (a *App) streamBanner(c *ui.Context) {
 	}
 }
 func (a *App) pageTitle(c *ui.Context, zh, en string, actions func()) {
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-		a.heading(c, zh, en)
-		ui.Spacer(c)
-		if actions != nil {
-			actions()
-		}
-	})
+	if narrowPage(c) {
+		ui.Column(c).FillWidth().Gap(10).Children(func() {
+			a.heading(c, zh, en)
+			if actions != nil {
+				ui.Row(c).FillWidth().Gap(8).Wrap().Children(actions)
+			}
+		})
+	} else {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+			a.heading(c, zh, en)
+			ui.Spacer(c)
+			if actions != nil {
+				ui.Row(c).Gap(8).Wrap().Children(actions)
+			}
+		})
+	}
 	a.streamBanner(c)
 }
 func (a *App) dialogs(c *ui.Context) {

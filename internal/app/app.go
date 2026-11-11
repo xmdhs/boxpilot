@@ -81,6 +81,8 @@ type App struct {
 	releases                               []core.Release
 	releaseChoice, releaseChannel          string
 	coreState                              core.State
+	coreProfileID                          string
+	coreAPIReplace                         bool
 	cpuCoreGroups                          []core.CPUCoreGroup
 	cpuCoreChoice                          string
 	downloadDone, downloadTotal            int64
@@ -92,6 +94,7 @@ type App struct {
 	profileLastUpdated                     time.Time
 	pendingOpenURLs                        []string
 	profileDirty                           bool
+	coreManagerOpen                        bool
 	externalBinary                         string
 	configImportPath                       string
 	customAccent                           string
@@ -106,6 +109,7 @@ func New(root string, s storage.Settings) *App {
 	if a.cpuCoreChoice == "" {
 		a.cpuCoreChoice = "auto"
 	}
+	a.coreManagerOpen = s.CorePath == ""
 	a.logList.FollowEnd = true
 	a.connectionList.KeepOffset = true
 	return a
@@ -197,14 +201,13 @@ func (a *App) post(fn func()) {
 	update := func() {
 		if !a.cleaned && !a.closing {
 			fn()
+			// 窗口指针和生命周期只在主线程访问，后台回调不捕获旧窗口。
+			if a.win != nil && !a.win.IsDestroyed() {
+				a.win.Invalidate()
+			}
 		}
 	}
-	if a.win != nil && !a.win.IsDestroyed() {
-		a.win.Update(update)
-		return
-	}
-	// The native window may be destroyed while the tray keeps the app alive.
-	// Continue applying stream/process state so a recreated view is current.
+	// 没有窗口时仍应用后台状态，恢复窗口后即可显示最新数据。
 	if a.dispatchMain != nil {
 		a.dispatchMain(update)
 		return
@@ -576,6 +579,10 @@ func (a *App) toggleCore() {
 	}
 }
 func (a *App) startCore(replace bool) {
+	if a.busy["remote-profile-restart"] {
+		a.notice = a.t("正在应用远程配置更新，请稍后再启动。", "Applying a remote profile update; try starting again shortly.")
+		return
+	}
 	if a.busy["cpu-core-detection"] {
 		a.notice = a.t("正在检测 CPU 核心类型，请稍后再启动。", "Detecting CPU core types; try starting the core again in a moment.")
 		return
@@ -602,9 +609,10 @@ func (a *App) startCore(replace bool) {
 	}
 	a.activate(localID)
 	selectionGeneration := a.generation
+	manager := a.manager
 	var startErr error
 	a.do("core-start", func(ctx context.Context) error {
-		startErr = a.manager.Start(ctx, binary, p, replace, cpuSetIDs)
+		startErr = manager.Start(ctx, binary, p, replace, cpuSetIDs)
 		return nil
 	}, func() {
 		if errors.Is(startErr, core.ErrAPIConflict) && !replace {
@@ -617,7 +625,8 @@ func (a *App) startCore(replace bool) {
 			}
 			return
 		}
-		a.coreStarted(a.manager.State(), selectionGeneration)
+		a.coreProfileID, a.coreAPIReplace = p.ID, replace
+		a.coreStarted(manager.State(), selectionGeneration)
 	})
 }
 
@@ -631,10 +640,14 @@ func (a *App) stopCore() {
 	if a.manager == nil {
 		return
 	}
+	if cancel := a.jobs["remote-profile-restart"]; cancel != nil {
+		cancel()
+	}
+	manager := a.manager
 	a.do("core-stop", func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 		defer cancel()
-		return a.manager.Stop(ctx)
+		return manager.Stop(ctx)
 	}, nil)
 }
 
@@ -642,18 +655,42 @@ func (a *App) stopCore() {
 var saveQueues sync.Map
 
 // 每个 App 拥有独立队列，其生命周期随应用退出结束。
+type settingsWrite struct {
+	settings  storage.Settings
+	committed func() error
+	settled   func(error)
+}
+
 type saveQueue struct {
 	mu      sync.Mutex
-	latest  *storage.Settings
+	pending []settingsWrite
 	running bool
 	done    chan struct{}
 }
 
 func (a *App) queueSave(s storage.Settings) {
+	a.queueSaveCommitted(s, nil)
+}
+
+// committed 只在对应设置已持久化后执行，且不依赖可能在退出时被丢弃的 UI 回调。
+func (a *App) queueSaveCommitted(s storage.Settings, committed func() error) {
+	a.queueSettingsTransaction(s, committed, nil)
+}
+
+func (a *App) queueSettingsTransaction(s storage.Settings, committed func() error, settled func(error)) {
+	s.Servers = append([]storage.Server(nil), s.Servers...)
+	s.Cards = append([]string(nil), s.Cards...)
+	s.DisabledCards = append([]string(nil), s.DisabledCards...)
 	v, _ := saveQueues.LoadOrStore(a, &saveQueue{})
 	q := v.(*saveQueue)
 	q.mu.Lock()
-	q.latest = &s
+	// 普通连续保存仍可合并；带提交动作的写入是不可跳过的事务边界。
+	write := settingsWrite{settings: s, committed: committed, settled: settled}
+	if n := len(q.pending); n > 0 && committed == nil && settled == nil && q.pending[n-1].committed == nil && q.pending[n-1].settled == nil {
+		q.pending[n-1] = write
+	} else {
+		q.pending = append(q.pending, write)
+	}
 	if q.running {
 		q.mu.Unlock()
 		return
@@ -664,16 +701,24 @@ func (a *App) queueSave(s storage.Settings) {
 	go func() {
 		for {
 			q.mu.Lock()
-			next := q.latest
-			q.latest = nil
-			if next == nil {
+			if len(q.pending) == 0 {
 				q.running = false
 				close(q.done)
 				q.mu.Unlock()
 				return
 			}
+			next := q.pending[0]
+			q.pending[0] = settingsWrite{}
+			q.pending = q.pending[1:]
 			q.mu.Unlock()
-			if err := storage.Save(a.root, *next); err != nil {
+			err := storage.Save(a.root, next.settings)
+			if err == nil && next.committed != nil {
+				err = next.committed()
+			}
+			if next.settled != nil {
+				next.settled(err)
+			}
+			if err != nil {
 				a.post(func() { a.fail(err) })
 			}
 		}

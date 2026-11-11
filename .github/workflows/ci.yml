@@ -35,7 +35,24 @@ jobs:
         working-directory: boxpilot
         env:
           CGO_ENABLED: 0
-        run: go test ./...
+        run: go test -timeout=3m ./...
+      - name: Check formatting and static analysis
+        working-directory: boxpilot
+        env:
+          CGO_ENABLED: 0
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+          go vet ./...
+          go tool mygo vet .
+      - name: Run race detector
+        working-directory: boxpilot
+        env:
+          CGO_ENABLED: 1
+        run: go test -race -timeout=3m ./...
 
   build:
     runs-on: ubuntu-latest

@@ -61,6 +61,12 @@ func (a *App) coreView(c *ui.Context) {
 			a.card(c, a.t("服务", "Service"), func() {
 				a.pill(c, a.corePhase(), a.statusColor(a.coreState.Phase))
 				a.line(c, a.t("版本", "Version"), a.coreState.Version)
+				if a.coreState.Phase == "running" {
+					a.line(c, a.t("运行配置", "Running profile"), a.runningProfileName())
+					if a.coreProfileID != "" && a.settings.ProfileID != "" && a.settings.ProfileID != a.coreProfileID {
+						a.label(c, a.t("已选择其他配置；当前运行不变，下次启动时生效。", "Another profile is selected. The running core is unchanged until the next start."))
+					}
+				}
 				if a.coreState.PID > 0 {
 					a.line(c, "PID", fmt.Sprint(a.coreState.PID))
 				}
@@ -70,121 +76,21 @@ func (a *App) coreView(c *ui.Context) {
 				if a.coreState.Error != "" {
 					ui.Text(c, a.coreState.Error).TextColor(a.palette.danger).FontSize(12).Selectable()
 				}
-				ui.Row(c).Gap(10).Children(func() {
-					ui.PrimaryButton(c, a.t("开始", "Start")).Disabled(a.busy["core-start"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
+				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
+					ui.PrimaryButton(c, a.t("启动", "Start")).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.busy["remote-profile-restart"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
 					ui.Button(c, a.t("停止", "Stop")).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
 				})
 				a.label(c, a.t("仅管理本应用启动的进程。退出应用时停止；隐藏窗口时继续运行。", "Only child processes started here are managed. Quit stops the core; hiding keeps it running."))
 			})
-			a.card(c, a.t("核心", "Core"), func() {
-				paths := []string{""}
-				for _, v := range a.installed {
-					paths = append(paths, v.Path)
-				}
-				if a.settings.CorePath != "" && !includes(paths, a.settings.CorePath) {
-					paths = append(paths, a.settings.CorePath)
-				}
-				a.field(c, a.t("选用的可执行文件", "Selected executable"), func() {
-					if ui.Select(c, &a.settings.CorePath, paths).FillWidth().Label(a.t("核心路径", "Core path")).Changed() {
-						a.saveSettings()
-					}
-				})
-				ui.Row(c).Gap(10).FillWidth().Children(func() {
-					ui.TextInput(c, &a.externalBinary).Grow(1).Placeholder(a.t("已有 sing-box 可执行文件的绝对路径", "Absolute path to an existing sing-box binary")).Label(a.t("已有核心路径", "Existing binary path"))
-					ui.Button(c, a.t("选择文件", "Browse")).OnClick(a.browseCore)
-					ui.Button(c, a.t("验证并使用", "Verify & use")).Disabled(a.busy["inspect"] || tidy(a.externalBinary) == "").OnClick(a.inspectCore)
-				})
-				ui.Row(c).Gap(10).Children(func() {
-					releaseValues := []string{"stable", "prerelease"}
-					releaseOptions := []string{a.t("稳定版", "Stable"), a.t("测试版", "Beta")}
-					releaseOption := releaseOptions[0]
-					if a.releaseChannel == "prerelease" {
-						releaseOption = releaseOptions[1]
-					}
-					if ui.Select(c, &releaseOption, releaseOptions).Width(130).Label(a.t("更新通道", "Update Track")).Changed() {
-						if releaseOption == releaseOptions[1] {
-							a.releaseChannel = releaseValues[1]
-						} else {
-							a.releaseChannel = releaseValues[0]
-						}
-					}
-					ui.Button(c, a.t("检查更新", "Check Update")).Disabled(a.busy["releases"]).OnClick(a.checkReleases)
-					if a.busy["releases"] {
-						ui.Spinner(c)
-					}
-				})
-				if a.releaseChannel == "prerelease" {
-					a.label(c, a.t("预发布版本可能不稳定；安装前请核对版本。", "Prerelease builds may be unstable. Review the version before installing."))
-				}
-				if len(a.releases) > 0 {
-					versions := make([]string, len(a.releases))
-					for i, r := range a.releases {
-						versions[i] = r.Version
-						if r.Prerelease {
-							versions[i] += " (" + a.t("测试版", "Beta") + ")"
-						}
-					}
-					if a.releaseChoice == "" || !includes(versions, a.releaseChoice) {
-						a.releaseChoice = versions[0]
-					}
-					ui.Row(c).Gap(10).Children(func() {
-						ui.Select(c, &a.releaseChoice, versions).Grow(1).Label(a.t("版本", "Version"))
-						ui.PrimaryButton(c, a.t("安装", "Install")).Disabled(a.busy["install"]).OnClick(func() {
-							a.confirm(a.t("安装", "Install"), a.t("将从官方发行源下载、验证 SHA-256 并安装此版本；不会自动启动或重启核心。", "Download from official releases, verify SHA-256, and install. The core will not start or restart automatically.")+"\n"+a.releaseChoice, a.installCore)
-						})
-					})
-				}
-				if a.busy["install"] {
-					progress := float64(-1)
-					if a.downloadTotal > 0 {
-						progress = float64(a.downloadDone) / float64(a.downloadTotal)
-					}
-					ui.Progress(c, progress).FillWidth()
-					a.label(c, fmt.Sprintf("%d / %d bytes", a.downloadDone, a.downloadTotal))
-					ui.Button(c, a.t("取消", "Cancel")).OnClick(func() {
-						if cancel := a.jobs["install"]; cancel != nil {
-							cancel()
-						}
-					})
-				}
-			})
+			a.coreManagementCard(c)
 			a.card(c, a.t("配置", "Profiles"), func() {
-				for _, p := range a.profiles {
-					p := p
-					ui.Row(c.Key(p.ID)).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-						if p.ID == a.settings.ProfileID {
-							ui.Icon(c, icons["check"]).Size(15, 15).TextColor(a.palette.accent)
-						}
-						ui.Column(c).Grow(1).Gap(3).Children(func() {
-							ui.Text(c, p.Name).SingleLine()
-							if p.Type == "remote" {
-								a.label(c, a.t("远程", "Remote")+" · "+p.LastUpdated.Format("2006-01-02 15:04")).SingleLine()
-							}
-						})
-						if p.Type == "remote" {
-							ui.Button(c, a.t("更新", "Update")).Disabled(a.busy["remote-update-"+p.ID]).OnClick(func() { a.updateRemoteProfile(p) })
-						}
-						ui.Button(c, a.t("选择配置", "Select Profile")).OnClick(func() { a.settings.ProfileID = p.ID; a.saveSettings() })
-						ui.Button(c, a.t("编辑配置", "Edit Profile")).OnClick(func() { a.editProfile(p) })
-						ui.Button(c, a.t("复制", "Copy")).OnClick(func() { a.duplicateProfile(p) })
-						ui.Button(c, a.t("删除", "Delete")).TextColor(a.palette.danger).OnClick(func() {
-							a.confirm(a.t("删除", "Delete"), p.Name, func() {
-								if a.coreState.Phase == "running" && a.settings.ProfileID == p.ID {
-									a.fail(errors.New(a.t("请先停止使用此配置的核心", "Stop the core before deleting its configuration")))
-									return
-								}
-								a.do("delete-profile", func(context.Context) error { return core.DeleteProfile(a.root, p.ID) }, func() {
-									if a.settings.ProfileID == p.ID {
-										a.settings.ProfileID = ""
-										a.saveSettings()
-									}
-									a.refreshLocal()
-								})
-							})
-						})
-					})
+				if len(a.profiles) == 0 {
+					a.label(c, a.t("尚无配置，请新建、导入或添加远程配置。", "No profiles yet. Create, import, or add a remote profile."))
 				}
-				ui.Row(c).Gap(10).Children(func() {
+				for _, profile := range a.profiles {
+					a.profileRow(c, profile)
+				}
+				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
 					ui.Button(c, a.t("新建配置", "New Profile")).OnClick(func() {
 						a.profileID = ""
 						a.profileType = "local"
@@ -204,6 +110,20 @@ func (a *App) coreView(c *ui.Context) {
 		})
 	})
 }
+func (a *App) coreDownloadProgress(c *ui.Context) {
+	progress := float64(-1)
+	if a.downloadTotal > 0 {
+		progress = float64(a.downloadDone) / float64(a.downloadTotal)
+	}
+	ui.Progress(c, progress).FillWidth()
+	a.label(c, fmt.Sprintf("%d / %d bytes", a.downloadDone, a.downloadTotal))
+	ui.Button(c, a.t("取消下载", "Cancel download")).OnClick(func() {
+		if cancel := a.jobs["install"]; cancel != nil {
+			cancel()
+		}
+	})
+}
+
 func (a *App) corePhase() string {
 	switch a.coreState.Phase {
 	case "running":
@@ -275,10 +195,11 @@ func (a *App) installCore() {
 	})
 }
 func (a *App) browseCore() {
+	parent := a.win
 	var paths []string
 	a.do("browse-core", func(context.Context) error {
 		var err error
-		paths, err = mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: "Open"})
+		paths, err = mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: parent, Title: "Open"})
 		return err
 	}, func() {
 		if len(paths) > 0 {
@@ -325,11 +246,12 @@ func (a *App) duplicateProfile(p core.Profile) {
 	}, a.refreshLocal)
 }
 func (a *App) importProfile() {
+	parent := a.win
 	var paths []string
 	var text string
 	a.do("import-profile", func(context.Context) error {
 		var err error
-		paths, err = mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: "Import from File", Filters: []mygo.FileFilter{{Name: "JSON / JSONC", Extensions: []string{"json", "jsonc"}}}})
+		paths, err = mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: parent, Title: "Import from File", Filters: []mygo.FileFilter{{Name: "JSON / JSONC", Extensions: []string{"json", "jsonc"}}}})
 		if err != nil || len(paths) == 0 {
 			return err
 		}
@@ -345,14 +267,24 @@ func (a *App) importProfile() {
 		return err
 	}, func() {
 		if len(paths) > 0 {
-			a.profileID = ""
-			a.profileName = a.t("导入配置", "Import Profile")
-			a.profileContent = text
-			a.profileDirty = true
-			a.profileEditor = true
+			a.openImportedProfile(text)
 		}
 	})
 }
+
+func (a *App) openImportedProfile(text string) {
+	a.profileID = ""
+	a.profileType = "local"
+	a.profileName = a.t("导入配置", "Import Profile")
+	a.profileRemoteURL = ""
+	a.profileAutoUpdate = false
+	a.profileAutoUpdateInterval = ""
+	a.profileLastUpdated = time.Time{}
+	a.profileContent = text
+	a.profileDirty = true
+	a.profileEditor = true
+}
+
 func (a *App) closeProfile() {
 	if a.busy["save-profile"] {
 		return

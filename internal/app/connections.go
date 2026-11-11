@@ -23,8 +23,14 @@ func (a *App) connections(c *ui.Context) {
 	if filter == "" {
 		filter = "active"
 	}
+	narrow := narrowPage(c)
+	if narrow {
+		ui.SearchField(c.Key("connection-query"), &a.connectionQuery).FillWidth().MinWidth(0).Label(a.t("搜索", "Search"))
+	}
 	ui.Row(c).FillWidth().Gap(12).Children(func() {
-		ui.SearchField(c.Key("connection-query"), &a.connectionQuery).Grow(1).Label(a.t("搜索", "Search"))
+		if !narrow {
+			ui.SearchField(c.Key("connection-query"), &a.connectionQuery).Grow(1).MinWidth(0).Label(a.t("搜索", "Search"))
+		}
 		filterValues := []string{"active", "closed", "all"}
 		filterOptions := []string{a.t("活动", "Active"), a.t("已关闭", "Closed"), a.t("全部", "All")}
 		filterOption := filterOptions[0]
@@ -33,7 +39,7 @@ func (a *App) connections(c *ui.Context) {
 				filterOption = filterOptions[i]
 			}
 		}
-		if ui.Select(c.Key("connection-filter"), &filterOption, filterOptions).Width(100).Label(a.t("状态", "State")).Changed() {
+		if ui.Select(c.Key("connection-filter"), &filterOption, filterOptions).Width(100).Shrink(0).Label(a.t("状态", "State")).Changed() {
 			for i, option := range filterOptions {
 				if filterOption == option {
 					filter = filterValues[i]
@@ -55,7 +61,7 @@ func (a *App) connections(c *ui.Context) {
 				sortOption = sortOptions[i]
 			}
 		}
-		if ui.Select(c.Key("connection-sort"), &sortOption, sortOptions).Width(125).Label(a.t("排序", "Sort By")).Changed() {
+		if ui.Select(c.Key("connection-sort"), &sortOption, sortOptions).Width(125).Shrink(0).Label(a.t("排序", "Sort By")).Changed() {
 			for i, option := range sortOptions {
 				if sortOption == option {
 					sort = sortValues[i]
@@ -138,7 +144,7 @@ func (a *App) connections(c *ui.Context) {
 func (a *App) connectionDetail(c *ui.Context, row model.ConnectionRow) {
 	width, _ := c.Size()
 	panelWidth := float32(420)
-	if width < 720 {
+	if width <= compactBreakpoint {
 		panelWidth = width
 	}
 	ui.Overlay(c, func() {

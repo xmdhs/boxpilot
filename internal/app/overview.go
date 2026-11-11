@@ -54,7 +54,7 @@ func (a *App) overview(c *ui.Context) {
 			case daemon.ServiceStatus_FATAL:
 				statusLabel = a.t("服务启动失败", "Service failed to start")
 			}
-			ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).Gap(12).Wrap().AlignItems(ui.Center).Children(func() {
 				a.pill(c, statusLabel, a.statusColor(a.snapshot.Phase))
 				if a.snapshot.StartedAt > 0 {
 					a.label(c, a.t("运行时间", "Uptime")+" "+model.FormatDuration(time.Since(time.UnixMilli(a.snapshot.StartedAt))))
@@ -63,16 +63,11 @@ func (a *App) overview(c *ui.Context) {
 				ui.Spacer(c)
 				a.label(c, a.snapshot.Version)
 			})
-			width, _ := c.Size()
-			cols := 2
-			if width < 820 {
-				cols = 1
-			}
 			order := a.settings.Cards
 			if len(order) == 0 {
 				order = cardIDs
 			}
-			ui.Grid(c).Columns(cols).Gap(16).FillWidth().Children(func() {
+			ui.Row(c.Key("overview-cards")).Wrap().AlignItems(ui.Stretch).Gap(16).FillWidth().Children(func() {
 				for _, id := range order {
 					id := id
 					if !includes(cardIDs, id) || includes(a.settings.DisabledCards, id) {
@@ -130,8 +125,9 @@ func (a *App) overview(c *ui.Context) {
 							}
 						}
 					})
+					card.Label(a.t("仪表卡片", "Dashboard card") + ": " + a.cardTitle(id)).Basis(overviewCardWidth).Grow(1).MinWidth(0)
 					if id == "mode" {
-						card.ColumnSpan(cols)
+						card.BasisPercent(100)
 					}
 				}
 			})

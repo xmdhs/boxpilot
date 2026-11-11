@@ -76,12 +76,6 @@ func (a *App) groups(c *ui.Context) {
 		a.empty(c, "无分组", "No groups")
 		return
 	}
-	width, _ := c.Size()
-	room := width - 232 - 90
-	if width <= 720 {
-		room = width - 80
-	}
-	columns := max(1, int(room/180))
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).Gap(16).FillWidth().Children(func() {
 			for _, g := range a.snapshot.Groups {
@@ -106,10 +100,10 @@ func (a *App) groups(c *ui.Context) {
 						})
 					})
 					if a.groupExpanded(g) {
-						ui.Grid(c).Columns(columns).Gap(9).FillWidth().Children(func() {
+						ui.Row(c).Wrap().AlignItems(ui.Stretch).Gap(9).FillWidth().Children(func() {
 							for _, item := range g.GetItems() {
 								item := item
-								b := ui.ButtonBase(c.Key(item.GetTag())).Padding(12).Radius(10).Border(1, a.palette.border).MinHeight(68).Label(item.GetTag())
+								b := ui.ButtonBase(c.Key(item.GetTag())).Basis(groupItemWidth).Grow(1).MinWidth(0).Padding(12).Radius(10).Border(1, a.palette.border).MinHeight(68).Label(item.GetTag())
 								if item.GetTag() == g.GetSelected() {
 									b.Background(a.palette.soft).Border(1, a.palette.accent)
 								} else if b.Hovered() {

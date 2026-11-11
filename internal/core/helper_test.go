@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -135,6 +136,9 @@ func helperProcess() {
 func helperBinary(t *testing.T) string {
 	t.Helper()
 	t.Setenv("BOXPILOT_CORE_HELPER", "1")
+	// 仅新启动的测试 helper 在运行时初始化时读取此选项；保留竞态检测及父进程
+	// 的退出等待，避免子进程默认 1 秒退出等待耗尽 Manager 的 700ms 启动预算。
+	t.Setenv("GORACE", strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)

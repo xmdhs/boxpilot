@@ -223,6 +223,19 @@ func assertNoStaging(t *testing.T, root string) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
+		// Persistent lock files are intentional; only the OS lock is transient.
+		if strings.HasPrefix(e.Name(), ".") && strings.HasSuffix(e.Name(), ".lock") {
+			version := strings.TrimSuffix(strings.TrimPrefix(e.Name(), "."), ".lock")
+			if _, err := compatibleVersion(version); err == nil && e.Type().IsRegular() {
+				lock, err := acquireInstallLock(filepath.Join(root, "versions", e.Name()))
+				if err != nil {
+					t.Errorf("install lock still held: %v", err)
+				} else {
+					lock.Close()
+				}
+				continue
+			}
+		}
 		if strings.HasPrefix(e.Name(), ".") {
 			t.Errorf("leftover install artifact %s", e.Name())
 		}

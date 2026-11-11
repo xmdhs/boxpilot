@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,70 @@ type managedProcess interface {
 	GracefulStop() error
 	Kill() error
 }
+
+// 同时返回进程和错误表示仍有后台回收任务；即使上下文已过期，调用方也必须
+// 等待 Wait 完成后再删除运行目录。此类进程不会转为正常运行状态。
+type processStarter func(context.Context, string, []string, string, io.Writer, bool, []uint32) (managedProcess, error)
+
+type processStartResult struct {
+	proc managedProcess
+	err  error
+}
+
+// startProcessContext 接管无法中断的系统启动调用（例如 UAC）。取消后将结果
+// 移交回收器，返回仅用于等待回收的进程，让 Manager 保留运行目录。
+// revoke 必须永久撤销本次启动核心的权限，不能放弃迟到的启动结果。
+func startProcessContext(ctx context.Context, launch func() (managedProcess, error), revoke func()) (managedProcess, error) {
+	if err := ctx.Err(); err != nil {
+		revoke()
+		return nil, err
+	}
+	result := make(chan processStartResult, 1)
+	go func() {
+		proc, err := launch()
+		result <- processStartResult{proc, err}
+	}()
+	select {
+	case started := <-result:
+		err := contextError(ctx, started.err)
+		if err == nil {
+			return started.proc, nil
+		}
+		revoke()
+		if started.proc == nil {
+			return nil, err
+		}
+		result <- started
+		return reapProcessStart(result), err
+	case <-ctx.Done():
+		revoke()
+		return reapProcessStart(result), ctx.Err()
+	}
+}
+
+type reapingProcess struct {
+	done chan struct{}
+	err  error
+}
+
+func reapProcessStart(result <-chan processStartResult) managedProcess {
+	p := &reapingProcess{done: make(chan struct{})}
+	go func() {
+		defer close(p.done)
+		started := <-result
+		if started.proc != nil {
+			// 仅使用已持有的进程或句柄，绝不按 PID 重新查找进程。
+			_ = started.proc.Kill()
+			p.err = started.proc.Wait()
+		}
+	}()
+	return p
+}
+
+func (*reapingProcess) PID() int            { return 0 }
+func (*reapingProcess) GracefulStop() error { return nil }
+func (*reapingProcess) Kill() error         { return nil } // 回收已经不可撤销。
+func (p *reapingProcess) Wait() error       { <-p.done; return p.err }
 
 type boundedOutput struct {
 	mu   sync.Mutex

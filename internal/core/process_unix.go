@@ -3,6 +3,7 @@
 package core
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -12,7 +13,10 @@ import (
 
 type commandProcess struct{ cmd *exec.Cmd }
 
-func startCoreProcess(path string, args []string, dir string, output io.Writer, elevated bool, _ []uint32) (managedProcess, error) {
+func startCoreProcess(ctx context.Context, path string, args []string, dir string, output io.Writer, elevated bool, _ []uint32) (managedProcess, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if elevated {
 		return nil, ErrElevationUnsupported
 	}
@@ -21,10 +25,15 @@ func startCoreProcess(path string, args []string, dir string, output io.Writer, 
 	cmd.Stdout = output
 	cmd.Stderr = output
 	cmd.WaitDelay = time.Second
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	return &commandProcess{cmd: cmd}, nil
+	return startProcessContext(ctx, func() (managedProcess, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		return &commandProcess{cmd: cmd}, nil
+	}, func() {})
 }
 
 func gracefulTerminate(p *os.Process) error { return p.Signal(syscall.SIGTERM) }
