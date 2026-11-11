@@ -148,6 +148,7 @@ func (a *App) overview(c *ui.Context) {
 }
 func (a *App) cardManager(c *ui.Context) {
 	ui.DialogBase(c, &a.cardDialog, func(back, panel ui.Element) {
+		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
 		ui.Text(c, a.t("仪表项目", "Dashboard Items")).FontSize(20).Bold()

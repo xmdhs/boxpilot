@@ -167,7 +167,7 @@ func (a *App) iconButton(c *ui.Context, key, label, glyph string, fn func()) {
 }
 
 func (a *App) iconButtonDisabled(c *ui.Context, key, label, glyph string, disabled bool, fn func()) {
-	b := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).Size(30, 30).Radius(8).Disabled(disabled)
+	b := ui.ButtonBase(c.Key(key)).Label(label).Tooltip(label).Size(30, 30).Radius(8).Disabled(disabled).Transition(interactionTransition)
 	if b.Hovered() {
 		b.Background(a.palette.hover)
 	}

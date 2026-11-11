@@ -199,6 +199,7 @@ func (a *App) editServer(id string) {
 func (a *App) serverForm(c *ui.Context) {
 	_, height := c.Size()
 	ui.DialogBase(c, &a.serverDialog, func(back, panel ui.Element) {
+		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).MaxHeight(620).MaxHeightPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
 		serverTitle := a.t("新建服务器", "New Server")

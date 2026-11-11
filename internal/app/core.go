@@ -297,6 +297,7 @@ func (a *App) profileForm(c *ui.Context) {
 		nameLabel = a.t("本地显示名称", "Local display name")
 	}
 	dialog := ui.DialogBase(c, &a.profileEditor, func(back, panel ui.Element) {
+		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(min(900, width-32)).MaxHeight(min(700, height-32)).Padding(22).Radius(20).Background(a.palette.card).Gap(12)
 		if a.profileType != "remote" {

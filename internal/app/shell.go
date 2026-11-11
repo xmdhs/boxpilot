@@ -27,7 +27,7 @@ func (a *App) view(c *ui.Context) {
 		}
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Children(func() {
 			a.toolbar(c, compact)
-			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(pagePadding).Gap(pageGap).Children(func() {
+			ui.Column(c.Key(a.page)).FillWidth().Grow(1).MinHeight(0).Padding(pagePadding).Gap(pageGap).Transition(pageTransition).Children(func() {
 				switch a.page {
 				case "overview":
 					a.overview(c)
@@ -49,9 +49,9 @@ func (a *App) view(c *ui.Context) {
 	})
 	if compact && a.compactMenu {
 		ui.Overlay(c, func() {
-			back := ui.Row(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .3)).Modal()
+			back := ui.Row(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .3)).Modal().Transition(overlayTransition)
 			back.Children(func() {
-				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Children(func() { a.sidebar(c) })
+				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Transition(drawerTransition(-20)).Children(func() { a.sidebar(c) })
 				if panel.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 					a.compactMenu = false
 				}
@@ -77,7 +77,7 @@ func (a *App) sidebar(c *ui.Context) {
 		})
 		for _, page := range pages {
 			page := page
-			b := ui.ButtonBase(c.Key(page.id)).FillWidth().Height(38).Radius(10).PaddingX(14).Label(a.t(page.zh, page.en))
+			b := ui.ButtonBase(c.Key(page.id)).FillWidth().Height(38).Radius(10).PaddingX(14).Label(a.t(page.zh, page.en)).Transition(interactionTransition)
 			color := p.muted
 			if a.page == page.id {
 				b.Background(p.soft)
@@ -201,6 +201,7 @@ func (a *App) dialogs(c *ui.Context) {
 	a.profileForm(c)
 	a.cardManager(c)
 	ui.DialogBase(c.Key("error-dialog"), &a.errorOpen, func(back, panel ui.Element) {
+		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(16)
 		ui.Text(c, a.t("错误", "Error")).FontSize(20).Bold()
@@ -211,6 +212,7 @@ func (a *App) dialogs(c *ui.Context) {
 		})
 	})
 	ui.DialogBase(c.Key("confirm-dialog"), &a.confirmOpen, func(back, panel ui.Element) {
+		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(16)
 		ui.Text(c, a.confirmTitle).FontSize(20).Bold()

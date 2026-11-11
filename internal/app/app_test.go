@@ -171,6 +171,7 @@ func TestModalBackdropDimsWindow(t *testing.T) {
 	before, _, _, _ := tt.Image().At(10, 10).RGBA()
 	a.serverDialog = true
 	tt.Frame()
+	tt.Advance(200 * time.Millisecond)
 	after, _, _, _ := tt.Image().At(10, 10).RGBA()
 	if after >= before {
 		t.Fatalf("modal backdrop did not dim the window: before=%d after=%d", before, after)
