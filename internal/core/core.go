@@ -26,6 +26,16 @@ type Release struct {
 	Size        int64
 }
 type Installed struct{ Version, Path string }
+
+type CPUCoreGroup struct {
+	Key             string
+	Kind            string
+	EfficiencyClass uint8
+	CPUSetIDs       []uint32
+}
+
+func CPUCoreGroups() []CPUCoreGroup { return detectCPUCoreGroups() }
+
 type Profile struct {
 	ID                 string    `json:"id"`
 	Name               string    `json:"name"`
@@ -48,12 +58,14 @@ type State struct {
 type Controller interface {
 	Start(context.Context, string, Profile, bool) error
 	Stop(context.Context) error
+	SetCPUSetIDs(context.Context, []uint32) error
 	State() State
 }
 
 var (
 	ErrAPIConflict          = errors.New("configuration already contains an API service")
 	ErrBusy                 = errors.New("core is already running or changing state")
+	ErrNotRunning           = errors.New("managed sing-box is not running")
 	ErrIncompatible         = errors.New("sing-box version must support API service (1.14 or newer in major version 1)")
 	ErrDigest               = errors.New("missing or invalid SHA-256 digest")
 	ErrAlreadyInstalled     = errors.New("version is already installed; it will not be overwritten")

@@ -29,6 +29,33 @@ func (a *App) coreView(c *ui.Context) {
 					a.label(c, a.t("每次启动 sing-box 时都会显示 Windows 用户帐户控制提示。BoxPilot 本身不会以管理员身份运行。", "Windows User Account Control asks for approval each time sing-box starts. BoxPilot itself does not run as administrator."))
 				})
 			}
+			if len(a.cpuCoreGroups) > 1 {
+				a.card(c, a.t("CPU 调度", "CPU Scheduling"), func() {
+					values := []string{a.t("自动（交由 Windows 调度）", "Automatic (let Windows schedule)")}
+					keys := []string{"auto"}
+					for _, group := range a.cpuCoreGroups {
+						values = append(values, a.cpuCoreGroupLabel(group))
+						keys = append(keys, group.Key)
+					}
+					selected := values[0]
+					for i, key := range keys {
+						if key == a.cpuCoreChoice {
+							selected = values[i]
+							break
+						}
+					}
+					if ui.Select(c, &selected, values).FillWidth().Label(a.t("核心类型", "Core type")).Changed() {
+						for i, value := range values {
+							if value == selected {
+								a.cpuCoreChoice = keys[i]
+								break
+							}
+						}
+					}
+					ui.PrimaryButton(c, a.t("应用到本机 sing-box", "Apply to local sing-box")).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
+					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；重启核心后需重新应用。管理员模式运行的进程可能因权限不足而无法修改。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not a strict affinity; reapply after restarting the core. Changes may fail if the core runs elevated."))
+				})
+			}
 			a.card(c, a.t("服务", "Service"), func() {
 				a.pill(c, a.corePhase(), a.statusColor(a.coreState.Phase))
 				a.line(c, a.t("版本", "Version"), a.coreState.Version)

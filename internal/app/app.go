@@ -80,6 +80,8 @@ type App struct {
 	releases                               []core.Release
 	releaseChoice, releaseChannel          string
 	coreState                              core.State
+	cpuCoreGroups                          []core.CPUCoreGroup
+	cpuCoreChoice                          string
 	downloadDone, downloadTotal            int64
 	profileEditor                          bool
 	profileID, profileName, profileContent string
@@ -125,6 +127,7 @@ func (a *App) Open(loadErr error) {
 		a.fail(fmt.Errorf("读取设置失败；为保护原文件，已暂停保存：%w", loadErr))
 	}
 	a.refreshLocal()
+	a.detectCPUCoreGroups()
 	a.runRemoteUpdateScheduler()
 	pendingURLs := append([]string(nil), a.pendingOpenURLs...)
 	a.pendingOpenURLs = nil

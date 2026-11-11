@@ -87,6 +87,21 @@ func (m *Manager) deliver() {
 }
 func (m *Manager) State() State  { m.mu.Lock(); defer m.mu.Unlock(); return m.snapshotLocked() }
 func (m *Manager) Running() bool { m.mu.Lock(); defer m.mu.Unlock(); return m.state.Phase == "running" }
+
+func (m *Manager) SetCPUSetIDs(ctx context.Context, ids []uint32) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	r := m.run
+	if r == nil || !r.ready || r.proc == nil || m.state.Phase != "running" {
+		m.mu.Unlock()
+		return ErrNotRunning
+	}
+	pid := r.proc.PID()
+	m.mu.Unlock()
+	return setProcessCPUSetIDs(pid, append([]uint32(nil), ids...))
+}
 func (m *Manager) finish(r *managedRun, err error) {
 	var cleanupErr error
 	if r.dir != "" {
