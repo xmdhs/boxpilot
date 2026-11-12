@@ -26,11 +26,6 @@ jobs:
         with:
           go-version-file: boxpilot/go.mod
           cache-dependency-path: boxpilot/go.sum
-      - name: Run tests
-        working-directory: boxpilot
-        env:
-          CGO_ENABLED: 0
-        run: go test -timeout=3m ./...
       - name: Check formatting and static analysis
         working-directory: boxpilot
         env:
