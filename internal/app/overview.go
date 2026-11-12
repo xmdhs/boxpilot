@@ -31,35 +31,13 @@ func (a *App) cardTitle(id string) string {
 	return id
 }
 func (a *App) overview(c *ui.Context) {
-	a.pageTitle(c, locales.In(a.language()).Overview(), func() {
-		if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
-			label := locales.In(a.language()).Start()
-			if a.coreState.Phase == "running" {
-				label = locales.In(a.language()).Stop()
-			}
-			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
-		}
-		a.iconButton(c, "manage-cards", locales.In(a.language()).DashboardItems(), "⚙", func() { a.cardDialog = true })
-	})
+	a.pageTitle(c, locales.In(a.language()).Overview(), nil)
 	if len(a.settings.Servers) == 0 && len(a.profiles) == 0 {
 		a.overviewProfile(c)
-		a.card(c, locales.In(a.language()).GetStartedWithBoxPilot(), func() {
-			ui.Text(c, locales.In(a.language()).ChooseAWayToConnectToSingBoxAddARemoteServerOrSetUpALocalCore()).TextColor(a.palette.muted).FillWidth()
-			ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-				transitionedPrimaryButton(c, locales.In(a.language()).ConnectToARemoteServer()).OnClick(func() { a.editServer("") })
-				transitionedButton(c, locales.In(a.language()).SetUpALocalCore()).OnClick(func() { a.page = "core" })
-			})
-		})
 		return
 	}
 	if a.client == nil {
 		a.overviewProfile(c)
-		a.card(c, "", func() {
-			ui.Row(c).Gap(10).Wrap().Children(func() {
-				transitionedPrimaryButton(c, locales.In(a.language()).Core()).OnClick(func() { a.page = "core" })
-				transitionedButton(c, locales.In(a.language()).Connect()).OnClick(func() { a.editServer("") })
-			})
-		})
 		return
 	}
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {

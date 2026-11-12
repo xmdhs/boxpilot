@@ -61,6 +61,16 @@ func TestNarrowPageActionsAndConnectionFilters(t *testing.T) {
 	}
 }
 
+func TestActivateForStartDoesNotNavigateToCore(t *testing.T) {
+	a := fixture(t)
+	a.page = "overview"
+	a.coreState = core.State{Phase: "stopped"}
+	a.activateForStart(localID)
+	if a.page != "overview" {
+		t.Fatalf("starting the local core navigated away from overview: %q", a.page)
+	}
+}
+
 func TestProfilesAreManagedFromOverviewInsteadOfCorePage(t *testing.T) {
 	a := fixture(t)
 	a.profiles = []core.Profile{{ID: "home-profile", Name: "Home profile", Type: "local"}}
@@ -76,54 +86,46 @@ func TestProfilesAreManagedFromOverviewInsteadOfCorePage(t *testing.T) {
 	}
 }
 
-func TestOverviewOnboardingShowsOnlyWhenNoServersOrProfiles(t *testing.T) {
+func TestOverviewOmitsOnboardingAndStartStaysOnOverview(t *testing.T) {
 	for _, language := range []string{"zh-Hans", "en"} {
 		t.Run(language, func(t *testing.T) {
-			a := fixture(t)
-			a.settings.Language = language
 			for _, width := range []int{480, 1140} {
 				t.Run(fmt.Sprint(width), func(t *testing.T) {
+					a := fixture(t)
+					a.settings.Language = language
 					a.settings.Servers = nil
 					a.profiles = nil
-					a.page = "overview"
+					a.coreState = core.State{Phase: "stopped"}
+					a.manager = core.NewManager(t.TempDir(), nil)
 					tt := ui.NewTester(a.view, width, 640)
-					remote := locales.In(a.language()).ConnectToARemoteServer()
-					local := locales.In(a.language()).SetUpALocalCore()
-					layoutControl(t, tt, ui.RoleButton, remote, float32(width), 640)
-					layoutControl(t, tt, ui.RoleButton, local, float32(width), 640)
-					if err := tt.Click(remote); err != nil || !a.serverDialog {
-						t.Fatalf("remote onboarding action failed: err=%v dialog=%t", err, a.serverDialog)
+					for _, text := range []string{
+						locales.In(a.language()).GetStartedWithBoxPilot(),
+						locales.In(a.language()).ConnectToARemoteServer(),
+						locales.In(a.language()).SetUpALocalCore(),
+					} {
+						if tt.HasText(text) {
+							t.Fatalf("setup guidance or shortcut remains on overview: %q", text)
+						}
 					}
-					a.serverDialog = false
-					tt.Frame()
-					if err := tt.Click(local); err != nil || a.page != "core" {
-						t.Fatalf("local onboarding action failed: err=%v page=%q", err, a.page)
+					start := locales.In(a.language()).Start()
+					layoutControl(t, tt, ui.RoleButton, start, float32(width), 640)
+					if err := tt.Click(start); err != nil {
+						t.Fatal(err)
+					}
+					if a.page != "overview" {
+						t.Fatalf("start action navigated away from overview: %q", a.page)
 					}
 				})
 			}
 		})
 	}
-
-	for _, configured := range []string{"server", "profile"} {
-		a := fixture(t)
-		switch configured {
-		case "server":
-			a.settings.Servers = []storage.Server{{ID: "remote", Name: "Remote", URL: "https://example.com"}}
-		case "profile":
-			a.profiles = []core.Profile{{ID: "local", Name: "Local", Type: "local"}}
-		}
-		tt := ui.NewTester(a.view, 800, 640)
-		if tt.HasText(locales.In(a.language()).GetStartedWithBoxPilot()) {
-			t.Fatalf("onboarding shown although a %s configuration exists", configured)
-		}
-	}
 }
 
-func TestOverviewCardsUseTwoColumnDashboardGrid(t *testing.T) {
+func TestOverviewCardsUseVersion003CardBasis(t *testing.T) {
 	for _, tc := range []struct {
 		width   int
 		columns int
-	}{{480, 2}, {720, 2}, {721, 2}, {820, 2}, {1140, 2}} {
+	}{{480, 1}, {720, 2}, {721, 1}, {820, 1}, {1140, 2}} {
 		t.Run(fmt.Sprint(tc.width), func(t *testing.T) {
 			a := fixture(t)
 			a.settings.Servers = []storage.Server{{ID: "remote", Name: "Remote", URL: "https://example.com"}}

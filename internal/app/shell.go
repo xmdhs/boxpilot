@@ -46,7 +46,7 @@ func (a *App) view(c *ui.Context) {
 	compact := width <= compactBreakpoint
 	ui.Row(c).Fill().Background(a.palette.bg).Children(func() {
 		if !compact {
-			a.sidebar(c)
+			a.sidebar(c, false)
 		}
 		ui.Column(c).Grow(1).MinWidth(0).FillHeight().Children(func() {
 			a.toolbar(c, compact)
@@ -74,7 +74,7 @@ func (a *App) view(c *ui.Context) {
 		ui.Overlay(c, func() {
 			back := ui.Row(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .3)).Modal().Transition(overlayTransition)
 			back.Children(func() {
-				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Transition(navigationDrawerTransition()).Children(func() { a.sidebar(c) })
+				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Transition(navigationDrawerTransition()).Children(func() { a.sidebar(c, true) })
 				if panel.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 					a.compactMenu = false
 				}
@@ -92,7 +92,7 @@ func (a *App) view(c *ui.Context) {
 	}
 }
 
-func (a *App) sidebar(c *ui.Context) {
+func (a *App) sidebar(c *ui.Context, showServerPicker bool) {
 	p := a.palette
 	ui.Column(c).Width(sidebarWidth).Shrink(0).FillHeight().Background(p.surface).Padding(16, 12).Gap(6).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
 		ui.Column(c).Padding(12, 14, 26).Gap(2).Children(func() {
@@ -116,7 +116,9 @@ func (a *App) sidebar(c *ui.Context) {
 		}
 		ui.Spacer(c)
 		ui.Column(c).Padding(12).Gap(10).BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
-			a.serverPicker(c)
+			if showServerPicker {
+				a.serverPicker(c, true)
+			}
 			ui.Row(c).Gap(6).Children(func() {
 				a.pill(c, a.phaseLabel(), a.statusColor(a.snapshot.Phase))
 				if a.snapshot.Version != "" {
@@ -128,7 +130,7 @@ func (a *App) sidebar(c *ui.Context) {
 	})
 }
 
-func (a *App) serverPicker(c *ui.Context) {
+func (a *App) serverPicker(c *ui.Context, compact bool) {
 	choices := []string{locales.In(a.language()).ThisComputer()}
 	ids := []string{localID}
 	for _, server := range a.settings.Servers {
@@ -141,7 +143,11 @@ func (a *App) serverPicker(c *ui.Context) {
 			choice = choices[i]
 		}
 	}
-	if ui.Select(c.Key("active-server"), &choice, choices).FillWidth().Label(locales.In(a.language()).Servers()).Changed() {
+	pickerWidth := float32(200)
+	if compact {
+		pickerWidth = 150
+	}
+	if ui.Select(c.Key("active-server"), &choice, choices).Width(pickerWidth).Label(locales.In(a.language()).Servers()).Changed() {
 		for i, label := range choices {
 			if label == choice {
 				a.activate(ids[i])
@@ -152,21 +158,27 @@ func (a *App) serverPicker(c *ui.Context) {
 }
 
 func (a *App) toolbar(c *ui.Context, compact bool) {
-	ui.Row(c).FillWidth().Height(58).PaddingX(20).Gap(12).AlignItems(ui.Center).Background(a.palette.bg).BorderWidth(0, 0, 1, 0).BorderColor(a.palette.border).Children(func() {
+	ui.Row(c).FillWidth().Height(52).PaddingX(20).Gap(12).AlignItems(ui.Center).Background(a.palette.bg).BorderWidth(0, 0, 1, 0).BorderColor(a.palette.border).Children(func() {
 		if compact {
 			a.iconButton(c, "navigation", locales.In(a.language()).ToggleNavigation(), "☰", func() { a.compactMenu = !a.compactMenu })
 		}
+		ui.Text(c, pageLabel(a.language(), a.page)).Font("Source Serif 4, Georgia, serif").FontSize(20).FontWeight(560).TextColor(a.palette.text)
 		ui.Spacer(c)
-		if (a.settings.ActiveID == localID || a.settings.ActiveID == "") && a.page != "overview" {
+		if !compact {
+			a.serverPicker(c, false)
+		}
+		if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
 			label := locales.In(a.language()).Start()
 			if a.coreState.Phase == "running" {
 				label = locales.In(a.language()).Stop()
 			}
-			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
-		} else if a.settings.ActiveID != localID && a.settings.ActiveID != "" {
+			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
+		} else {
 			a.iconButton(c, "reconnect", locales.In(a.language()).Retry(), "↻", func() { a.activate(a.settings.ActiveID) })
 		}
-		a.iconButton(c, "add-server", locales.In(a.language()).NewServer(), "+", func() { a.editServer("") })
+		if a.page == "overview" {
+			a.iconButton(c, "manage-cards", locales.In(a.language()).DashboardItems(), "⚙", func() { a.cardDialog = true })
+		}
 	})
 }
 func (a *App) activeName() string {
@@ -202,22 +214,9 @@ func (a *App) streamBanner(c *ui.Context) {
 		})
 	}
 }
-func (a *App) pageTitle(c *ui.Context, title string, actions func()) {
-	if narrowPage(c) {
-		ui.Column(c).FillWidth().Gap(10).Children(func() {
-			a.heading(c, title)
-			if actions != nil {
-				ui.Row(c).FillWidth().Gap(8).Wrap().Children(actions)
-			}
-		})
-	} else {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-			a.heading(c, title)
-			ui.Spacer(c)
-			if actions != nil {
-				ui.Row(c).Gap(8).Wrap().Children(actions)
-			}
-		})
+func (a *App) pageTitle(c *ui.Context, _ string, actions func()) {
+	if actions != nil {
+		ui.Row(c).FillWidth().Gap(8).Wrap().Justify(ui.End).Children(actions)
 	}
 	a.streamBanner(c)
 }

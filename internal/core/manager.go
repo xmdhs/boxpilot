@@ -290,18 +290,14 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	m.notifyLocked()
 	m.mu.Unlock()
 	if len(startupCPUSetIDs) > 0 {
-		if applied, ok := proc.(interface{ StartupCPUAffinityApplied() bool }); ok && applied.StartupCPUAffinityApplied() {
-			// The elevated startup helper applies affinity before reporting the child.
+		var applyErr error
+		if setter, ok := proc.(interface{ SetCPUAffinity([]uint32) error }); ok {
+			applyErr = setter.SetCPUAffinity(startupCPUSetIDs)
 		} else {
-			var applyErr error
-			if setter, ok := proc.(interface{ SetCPUAffinity([]uint32) error }); ok {
-				applyErr = setter.SetCPUAffinity(startupCPUSetIDs)
-			} else {
-				applyErr = setProcessCPUAffinity(proc.PID(), startupCPUSetIDs)
-			}
-			if err := applyErr; err != nil {
-				return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
-			}
+			applyErr = setProcessCPUAffinity(proc.PID(), startupCPUSetIDs)
+		}
+		if err := applyErr; err != nil {
+			return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
 		}
 	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)

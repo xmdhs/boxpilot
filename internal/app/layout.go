@@ -8,7 +8,7 @@ const (
 	pagePadding           float32 = 24
 	pageGap               float32 = 18
 	actionBreakpoint      float32 = 600
-	overviewCardWidth     float32 = 180
+	overviewCardWidth     float32 = 300
 	groupItemDesktopWidth float32 = 170
 	groupItemCompactWidth float32 = 140
 )

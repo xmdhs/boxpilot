@@ -124,7 +124,7 @@ func New(root string, s storage.Settings) *App {
 }
 
 func (a *App) Open(loadErr error) {
-	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1280, Height: 800, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
+	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
 	a.desktop = desktop.New(a.win, desktop.Callbacks{
 		EnsureWindow: a.ensureWindow, DestroyWindow: a.destroyWindowForTray, Quit: mygo.App.Quit,
 		ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" },
@@ -232,7 +232,7 @@ func (a *App) ensureWindow() {
 	if a.win != nil && !a.win.IsDestroyed() {
 		return
 	}
-	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1280, Height: 800, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
+	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
 	if a.desktop != nil {
 		a.desktop.AttachWindow(a.win)
 	}
@@ -397,6 +397,14 @@ func (a *App) connect(server api.Server) {
 }
 
 func (a *App) activate(id string) {
+	a.activateWithNavigation(id, true)
+}
+
+func (a *App) activateForStart(id string) {
+	a.activateWithNavigation(id, false)
+}
+
+func (a *App) activateWithNavigation(id string, navigateToCore bool) {
 	a.settings.ActiveID = id
 	if a.desktop != nil {
 		a.desktop.SetLanguage(a.language())
@@ -407,7 +415,7 @@ func (a *App) activate(id string) {
 		a.disconnect()
 		if a.coreState.Phase == "running" {
 			a.connect(api.Server{ID: id, URL: a.coreState.URL, Secret: a.coreState.Secret})
-		} else {
+		} else if navigateToCore {
 			a.page = "core"
 		}
 		return
@@ -652,13 +660,11 @@ func (a *App) startCore(replace bool) {
 	p, ok := a.selectedProfile()
 	if !ok {
 		a.fail(errors.New(locales.In(a.language()).EmptyProfiles()))
-		a.page = "core"
 		return
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
 		a.fail(errors.New(locales.In(a.language()).CoreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst()))
-		a.page = "core"
 		return
 	}
 	cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()
@@ -666,7 +672,7 @@ func (a *App) startCore(replace bool) {
 		a.fail(errors.New(locales.In(a.language()).TheSelectedCPUCoreTypeIsNoLongerAvailableRestartBoxPilotToRefreshDetection()))
 		return
 	}
-	a.activate(localID)
+	a.activateForStart(localID)
 	selectionGeneration := a.generation
 	manager := a.manager
 	var startErr error

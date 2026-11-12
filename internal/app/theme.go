@@ -136,9 +136,6 @@ func transitionedSegmented(c *ui.Context, selected *int, labels ...string) ui.El
 	return ui.Segmented(c, selected, labels...).Transition(interactionTransition)
 }
 
-func (a *App) heading(c *ui.Context, title string) {
-	ui.Text(c, title).Font("Source Serif 4, Georgia, serif").FontSize(27).FontWeight(560).TextColor(a.palette.text)
-}
 func (a *App) card(c *ui.Context, title string, body func()) ui.Element {
 	return ui.Column(c).FillWidth().Padding(20).Gap(14).Radius(16).Background(a.palette.card).Border(1, a.palette.border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, .035)).Children(func() {
 		if title != "" {

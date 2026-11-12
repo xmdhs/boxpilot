@@ -126,8 +126,10 @@ func TestAnimatedOverlaysRemainDismissible(t *testing.T) {
 				if _, ok := tt.AccessByRole(ui.RoleDialog, ""); ok {
 					t.Fatal("浮层关闭后仍在无障碍树中")
 				}
+				a.page = "settings"
+				tt.Frame()
 				if err := tt.Click("New Server"); err != nil || !a.serverDialog {
-					t.Fatalf("退出动画阻挡了底层操作：err=%v dialog=%t", err, a.serverDialog)
+					t.Fatalf("退出动画阻挡了设置页操作：err=%v dialog=%t", err, a.serverDialog)
 				}
 			})
 		}
