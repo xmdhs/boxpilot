@@ -151,7 +151,7 @@ func (a *App) connectionDetail(c *ui.Context, row model.ConnectionRow) {
 	ui.Overlay(c, func() {
 		back := ui.Row(c).Absolute().Top(0).Bottom(0).Left(0).Right(0).Justify(ui.End).Background(ui.RGBA(0, 0, 0, .32)).Modal().Transition(overlayTransition)
 		back.Children(func() {
-			panel := ui.Column(c).Width(panelWidth).FillHeight().Padding(24).Gap(16).Background(a.palette.bg).Role(ui.RoleDialog).Label(locales.In(a.language()).Connection()).Transition(drawerTransition(20))
+			panel := ui.Column(c).Width(panelWidth).FillHeight().Padding(24).Gap(16).Background(a.palette.bg).Role(ui.RoleDialog).Label(locales.In(a.language()).Connection()).Transition(drawerTransition(24))
 			panel.Children(func() {
 				conn := row.Connection
 				ui.Row(c).FillWidth().Children(func() {

@@ -32,7 +32,17 @@ func TestNarrowPageActionsAndConnectionFilters(t *testing.T) {
 				for _, name := range []string{locales.In(a.language()).PauseUpdates(), locales.In(a.language()).CopyLogs(), locales.In(a.language()).ClearLogs()} {
 					layoutControl(t, tt, ui.RoleButton, name, float32(width), 640)
 				}
+				if width <= int(compactBreakpoint) {
+					if err := tt.Click(locales.In(a.language()).ToggleNavigation()); err != nil {
+						t.Fatal(err)
+					}
+					tt.Frame()
+				}
 				layoutControl(t, tt, ui.RolePopUpButton, locales.In(a.language()).Servers(), float32(width), 640)
+				if width <= int(compactBreakpoint) {
+					tt.Key(0, ui.KeyEscape)
+					tt.Frame()
+				}
 				a.page = "connections"
 				tt.Frame()
 				search := layoutControl(t, tt, ui.RoleTextField, locales.In(a.language()).Search(), float32(width), 640)
@@ -48,6 +58,21 @@ func TestNarrowPageActionsAndConnectionFilters(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestProfilesAreManagedFromOverviewInsteadOfCorePage(t *testing.T) {
+	a := fixture(t)
+	a.profiles = []core.Profile{{ID: "home-profile", Name: "Home profile", Type: "local"}}
+	a.settings.ProfileID = "home-profile"
+	tt := ui.NewTester(a.view, 1140, 900)
+	if !tt.HasText("Home profile") || !tt.HasText(locales.In(a.language()).NewProfile()) {
+		t.Fatal("overview does not show profile management")
+	}
+	a.page = "core"
+	tt.Frame()
+	if tt.HasText("Home profile") {
+		t.Fatal("core page still shows profiles in the old location")
 	}
 }
 
@@ -94,11 +119,11 @@ func TestOverviewOnboardingShowsOnlyWhenNoServersOrProfiles(t *testing.T) {
 	}
 }
 
-func TestOverviewCardsWrapByAvailableWidth(t *testing.T) {
+func TestOverviewCardsUseTwoColumnDashboardGrid(t *testing.T) {
 	for _, tc := range []struct {
 		width   int
 		columns int
-	}{{480, 1}, {720, 2}, {721, 1}, {820, 1}, {1140, 2}} {
+	}{{480, 2}, {720, 2}, {721, 2}, {820, 2}, {1140, 2}} {
 		t.Run(fmt.Sprint(tc.width), func(t *testing.T) {
 			a := fixture(t)
 			a.settings.Servers = []storage.Server{{ID: "remote", Name: "Remote", URL: "https://example.com"}}
@@ -126,14 +151,14 @@ func TestOverviewCardsWrapByAvailableWidth(t *testing.T) {
 }
 
 func TestGroupsWrapWithinTheirContainer(t *testing.T) {
-	for _, width := range []int{480, 721, 820, 1140} {
+	for _, width := range []int{480, 720, 721, 820, 1140} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {
 			a := fixture(t)
 			a.page = "groups"
 			tt := ui.NewTester(a.view, width, 780)
 			for _, name := range []string{"Tokyo", "Singapore", "Direct"} {
 				item := layoutControl(t, tt, ui.RoleButton, name, float32(width), 780)
-				if item.Bounds.W < groupItemWidth {
+				if item.Bounds.W < groupItemMinWidth(float32(width)) {
 					t.Fatalf("node narrower than its minimum: %+v", item.Bounds)
 				}
 			}

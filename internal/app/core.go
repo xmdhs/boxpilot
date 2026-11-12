@@ -86,27 +86,6 @@ func (a *App) coreView(c *ui.Context) {
 				a.label(c, locales.In(a.language()).OnlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning())
 			})
 			a.coreManagementCard(c)
-			a.card(c, locales.In(a.language()).Profiles(), func() {
-				if len(a.profiles) == 0 {
-					a.label(c, locales.In(a.language()).NoProfilesYetCreateImportOrAddARemoteProfile())
-				}
-				for _, profile := range a.profiles {
-					a.profileRow(c, profile)
-				}
-				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-					ui.Button(c, locales.In(a.language()).NewProfile()).OnClick(func() {
-						a.profileID = ""
-						a.profileType = "local"
-						a.profileName = locales.In(a.language()).NewProfile()
-						a.profileRemoteURL = ""
-						a.profileContent = core.DefaultConfig()
-						a.profileDirty = false
-						a.profileEditor = true
-					})
-					ui.Button(c, locales.In(a.language()).Remote()).OnClick(func() { a.newRemoteProfile("", "") })
-					ui.Button(c, locales.In(a.language()).ImportFromFile()).OnClick(a.importProfile)
-				})
-			})
 			if a.coreState.Output != "" {
 				a.card(c, locales.In(a.language()).Logs(), func() { ui.Text(c, a.coreState.Output).Font("monospace").FontSize(11).Selectable().MaxHeight(240) })
 			}

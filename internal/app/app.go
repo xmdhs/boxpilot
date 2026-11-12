@@ -124,7 +124,7 @@ func New(root string, s storage.Settings) *App {
 }
 
 func (a *App) Open(loadErr error) {
-	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
+	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1280, Height: 800, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
 	a.desktop = desktop.New(a.win, desktop.Callbacks{
 		EnsureWindow: a.ensureWindow, DestroyWindow: a.destroyWindowForTray, Quit: mygo.App.Quit,
 		ToggleCore: a.toggleCore, CoreRunning: func() bool { return a.coreState.Phase == "running" },
@@ -232,7 +232,7 @@ func (a *App) ensureWindow() {
 	if a.win != nil && !a.win.IsDestroyed() {
 		return
 	}
-	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1140, Height: 780, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
+	a.win = mygo.NewWindow(mygo.WindowOptions{Title: "BoxPilot", Width: 1280, Height: 800, MinWidth: 480, MinHeight: 460, StateKey: "main", BackgroundColor: "light-dark(#fafafa, #1e1e1e)", Content: ui.View(a.view)})
 	if a.desktop != nil {
 		a.desktop.AttachWindow(a.win)
 	}

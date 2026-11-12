@@ -36,7 +36,7 @@ func TestPageMotionRespectsReducedMotionAndSettles(t *testing.T) {
 			if !reduced && start.Y <= rest.Y {
 				t.Fatalf("页面未从下方入场：rest=%+v start=%+v", rest, start)
 			}
-			tt.Advance(250 * time.Millisecond)
+			tt.Advance(300 * time.Millisecond)
 			end, ok := tt.Find("page")
 			if !ok || end != rest {
 				t.Fatalf("动画结束后页面未恢复布局位置：rest=%+v end=%+v", rest, end)
@@ -122,7 +122,7 @@ func TestAnimatedOverlaysRemainDismissible(t *testing.T) {
 						t.Fatal("动画期间 Escape 未能关闭浮层")
 					}
 				}
-				tt.Advance(250 * time.Millisecond)
+				tt.Advance(300 * time.Millisecond)
 				if _, ok := tt.AccessByRole(ui.RoleDialog, ""); ok {
 					t.Fatal("浮层关闭后仍在无障碍树中")
 				}

@@ -74,7 +74,7 @@ func (a *App) view(c *ui.Context) {
 		ui.Overlay(c, func() {
 			back := ui.Row(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .3)).Modal().Transition(overlayTransition)
 			back.Children(func() {
-				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Transition(drawerTransition(-20)).Children(func() { a.sidebar(c) })
+				panel := ui.Column(c).Width(sidebarWidth).FillHeight().Transition(navigationDrawerTransition()).Children(func() { a.sidebar(c) })
 				if panel.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 					a.compactMenu = false
 				}
@@ -116,7 +116,7 @@ func (a *App) sidebar(c *ui.Context) {
 		}
 		ui.Spacer(c)
 		ui.Column(c).Padding(12).Gap(10).BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
-			a.label(c, a.activeName()).SingleLine()
+			a.serverPicker(c)
 			ui.Row(c).Gap(6).Children(func() {
 				a.pill(c, a.phaseLabel(), a.statusColor(a.snapshot.Phase))
 				if a.snapshot.Version != "" {
@@ -128,39 +128,42 @@ func (a *App) sidebar(c *ui.Context) {
 	})
 }
 
+func (a *App) serverPicker(c *ui.Context) {
+	choices := []string{locales.In(a.language()).ThisComputer()}
+	ids := []string{localID}
+	for _, server := range a.settings.Servers {
+		choices = append(choices, server.Name+" · "+server.ID[:min(6, len(server.ID))])
+		ids = append(ids, server.ID)
+	}
+	choice := choices[0]
+	for i, id := range ids {
+		if id == a.settings.ActiveID {
+			choice = choices[i]
+		}
+	}
+	if ui.Select(c.Key("active-server"), &choice, choices).FillWidth().Label(locales.In(a.language()).Servers()).Changed() {
+		for i, label := range choices {
+			if label == choice {
+				a.activate(ids[i])
+				break
+			}
+		}
+	}
+}
+
 func (a *App) toolbar(c *ui.Context, compact bool) {
 	ui.Row(c).FillWidth().Height(58).PaddingX(20).Gap(12).AlignItems(ui.Center).Background(a.palette.bg).BorderWidth(0, 0, 1, 0).BorderColor(a.palette.border).Children(func() {
 		if compact {
 			a.iconButton(c, "navigation", locales.In(a.language()).ToggleNavigation(), "☰", func() { a.compactMenu = !a.compactMenu })
 		}
-		choices := []string{locales.In(a.language()).ThisComputer()}
-		ids := []string{localID}
-		for _, s := range a.settings.Servers {
-			choices = append(choices, s.Name+" · "+s.ID[:min(6, len(s.ID))])
-			ids = append(ids, s.ID)
-		}
-		choice := choices[0]
-		for i, id := range ids {
-			if id == a.settings.ActiveID {
-				choice = choices[i]
-			}
-		}
-		if ui.Select(c.Key("active-server"), &choice, choices).Grow(1).MinWidth(100).MaxWidth(230).Label(locales.In(a.language()).Servers()).Changed() {
-			for i, label := range choices {
-				if label == choice {
-					a.activate(ids[i])
-					break
-				}
-			}
-		}
 		ui.Spacer(c)
-		if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
+		if (a.settings.ActiveID == localID || a.settings.ActiveID == "") && a.page != "overview" {
 			label := locales.In(a.language()).Start()
 			if a.coreState.Phase == "running" {
 				label = locales.In(a.language()).Stop()
 			}
 			ui.Button(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
-		} else {
+		} else if a.settings.ActiveID != localID && a.settings.ActiveID != "" {
 			a.iconButton(c, "reconnect", locales.In(a.language()).Retry(), "↻", func() { a.activate(a.settings.ActiveID) })
 		}
 		a.iconButton(c, "add-server", locales.In(a.language()).NewServer(), "+", func() { a.editServer("") })
