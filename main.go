@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	if handled, exitCode, err := core.RunElevatedCoreHelper(os.Args[1:]); handled {
+	if handled, exitCode, err := core.RunElevatedCoreAction(os.Args[1:]); handled {
 		if err != nil {
-			log.Printf("run elevated sing-box supervisor: %v", err)
+			log.Printf("run elevated process action: %v", err)
 			os.Exit(1)
 		}
 		os.Exit(exitCode)

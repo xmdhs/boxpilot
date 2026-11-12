@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -248,6 +249,10 @@ func TestManagerCanceledLaunchRetainsOwnership(t *testing.T) {
 			r := m.run
 			dir := r.dir
 			m.mu.Unlock()
+			configName := "config.json"
+			if runtime.GOOS == "windows" {
+				configName = "boxpilot-derived-config.json"
+			}
 			stopResult := make(chan error, 1)
 			switch cancellation {
 			case "caller":
@@ -263,7 +268,7 @@ func TestManagerCanceledLaunchRetainsOwnership(t *testing.T) {
 			if !errors.Is(err, want) || !revoked.Load() {
 				t.Fatalf("start cancellation: %v revoked=%v", err, revoked.Load())
 			}
-			if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
+			if _, err := os.Stat(filepath.Join(dir, configName)); err != nil {
 				t.Fatalf("runtime directory removed before late handle arrived: %v", err)
 			}
 			if err := m.Start(context.Background(), binary, profile, false); !errors.Is(err, ErrBusy) {
@@ -286,7 +291,7 @@ func TestManagerCanceledLaunchRetainsOwnership(t *testing.T) {
 			close(approve)
 			if cancellation != "denial-after-stop" {
 				receiveCancellationTest(t, child.killed)
-				if _, err := os.Stat(filepath.Join(dir, "config.json")); err != nil {
+				if _, err := os.Stat(filepath.Join(dir, configName)); err != nil {
 					t.Fatalf("runtime directory removed before core/helper reaping: %v", err)
 				}
 				close(child.exit)
@@ -297,7 +302,11 @@ func TestManagerCanceledLaunchRetainsOwnership(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+			if runtime.GOOS == "windows" {
+				if _, err := os.Stat(dir); err != nil {
+					t.Fatalf("profile directory was removed after reaping: %v", err)
+				}
+			} else if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("runtime directory not cleaned after reaping: %v", err)
 			}
 			wantPhase := "stopped"

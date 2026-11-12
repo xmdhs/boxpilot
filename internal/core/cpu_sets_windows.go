@@ -69,15 +69,18 @@ func setProcessCPUSetIDs(pid int, ids []uint32) error {
 	if pid <= 0 {
 		return errors.New("invalid sing-box process ID")
 	}
-	if err := setProcessDefaultCPUSets.Find(); err != nil {
-		return fmt.Errorf("Windows CPU Sets are unavailable: %w", err)
-	}
 	handle, err := windows.OpenProcess(0x2000 /* PROCESS_SET_LIMITED_INFORMATION */, false, uint32(pid))
 	if err != nil {
 		return fmt.Errorf("open managed sing-box process: %w", err)
 	}
 	defer windows.CloseHandle(handle)
+	return setProcessCPUSetHandle(handle, ids)
+}
 
+func setProcessCPUSetHandle(handle windows.Handle, ids []uint32) error {
+	if err := setProcessDefaultCPUSets.Find(); err != nil {
+		return fmt.Errorf("Windows CPU Sets are unavailable: %w", err)
+	}
 	var idsPointer uintptr
 	if len(ids) > 0 {
 		idsPointer = uintptr(unsafe.Pointer(&ids[0]))

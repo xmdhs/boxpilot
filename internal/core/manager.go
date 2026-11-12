@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 )
@@ -109,14 +107,7 @@ func (m *Manager) SetCPUSetIDs(ctx context.Context, ids []uint32) error {
 	return setProcessCPUSetIDs(pid, ids)
 }
 func (m *Manager) finish(r *managedRun, err error) {
-	var cleanupErr error
-	if r.dir != "" {
-		// Runtime credentials, configurations, and diagnostics exist only while
-		// the process is running. Nothing is persisted as a log file.
-		if removeErr := os.RemoveAll(r.dir); removeErr != nil {
-			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("remove runtime files: %w", removeErr))
-		}
-	}
+	cleanupErr := cleanupRunDirectory(r.dir)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if r.complete {
@@ -229,25 +220,14 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	if err != nil {
 		return fail(err)
 	}
-	root, err := filepath.Abs(m.root)
+	dir, config, err := prepareRunConfig(m.root, p.Path, derived)
 	if err != nil {
 		return fail(err)
 	}
-	if err = privateDir(root); err != nil {
-		return fail(err)
-	}
-	runtimeDir := filepath.Join(root, "runtime")
-	if err = privateDir(runtimeDir); err != nil {
-		return fail(err)
-	}
-	r.dir, err = os.MkdirTemp(runtimeDir, "run-*")
-	if err != nil {
-		return fail(err)
-	}
+	r.dir = dir
 	m.mu.Lock()
 	r.secret = secret
 	m.mu.Unlock()
-	config := filepath.Join(r.dir, "config.json")
 	if err = atomicWrite(config, derived); err != nil {
 		return fail(err)
 	}
@@ -268,7 +248,7 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	m.mu.Unlock()
 	go func() {
 		// 启动失败后仍可能持有未返回的 ShellExecute 调用，
-		// 此处也是迟到 helper 句柄的唯一等待者。
+		// 此处也是迟到 sing-box 句柄的唯一等待者。
 		err := proc.Wait()
 		m.mu.Lock()
 		r.waitErr = err
@@ -309,8 +289,14 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	m.state.PID = proc.PID()
 	m.notifyLocked()
 	m.mu.Unlock()
-	if !m.elevated && len(startupCPUSetIDs) > 0 {
-		if err := setProcessCPUSetIDs(proc.PID(), startupCPUSetIDs); err != nil {
+	if len(startupCPUSetIDs) > 0 {
+		var applyErr error
+		if setter, ok := proc.(interface{ SetCPUSetIDs([]uint32) error }); ok {
+			applyErr = setter.SetCPUSetIDs(startupCPUSetIDs)
+		} else {
+			applyErr = setProcessCPUSetIDs(proc.PID(), startupCPUSetIDs)
+		}
+		if err := applyErr; err != nil {
 			return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
 		}
 	}

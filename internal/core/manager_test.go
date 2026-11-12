@@ -109,11 +109,14 @@ func TestManagerLifecycleContextDetachmentAndRedaction(t *testing.T) {
 	if strings.Contains(manager.State().Output, state.Secret) || !strings.Contains(manager.State().Output, "[REDACTED]") {
 		t.Fatal("state output leaked secret")
 	}
-	runDirs, err := os.ReadDir(filepath.Join(root, "runtime"))
-	if err != nil || len(runDirs) != 1 {
-		t.Fatalf("runtime dirs: %v %v", runDirs, err)
+	configPath := filepath.Join(filepath.Dir(p.Path), "boxpilot-derived-config.json")
+	if runtime.GOOS != "windows" {
+		runDirs, err := os.ReadDir(filepath.Join(root, "runtime"))
+		if err != nil || len(runDirs) != 1 {
+			t.Fatalf("runtime dirs: %v %v", runDirs, err)
+		}
+		configPath = filepath.Join(root, "runtime", runDirs[0].Name(), "config.json")
 	}
-	configPath := filepath.Join(root, "runtime", runDirs[0].Name(), "config.json")
 	info, err := os.Stat(configPath)
 	if err != nil {
 		t.Fatal(err)
@@ -138,9 +141,15 @@ func TestManagerLifecycleContextDetachmentAndRedaction(t *testing.T) {
 	if strings.Contains(stopped.Output, state.Secret) {
 		t.Fatal("stopped output leaked secret")
 	}
-	runDirs, err = os.ReadDir(filepath.Join(root, "runtime"))
-	if err != nil || len(runDirs) != 0 {
-		t.Fatalf("runtime files were persisted after stop: %v %v", runDirs, err)
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(configPath); err != nil {
+			t.Fatalf("stable derived config unexpectedly removed: %v", err)
+		}
+	} else {
+		runDirs, err := os.ReadDir(filepath.Join(root, "runtime"))
+		if err != nil || len(runDirs) != 0 {
+			t.Fatalf("runtime files were persisted after stop: %v %v", runDirs, err)
+		}
 	}
 	if err = manager.Stop(context.Background()); err != nil {
 		t.Fatal(err)
@@ -225,7 +234,11 @@ func TestManagerStopDuringStartAndCanceledCaller(t *testing.T) {
 				}
 			} else {
 				waitUntil(t, func() bool {
-					matches, _ := filepath.Glob(filepath.Join(root, "runtime", "run-*", "config.json.checking"))
+					pattern := filepath.Join(root, "runtime", "run-*", "config.json.checking")
+					if runtime.GOOS == "windows" {
+						pattern = filepath.Join(filepath.Dir(p.Path), "boxpilot-derived-config.json.checking")
+					}
+					matches, _ := filepath.Glob(pattern)
 					return len(matches) == 1
 				})
 			}

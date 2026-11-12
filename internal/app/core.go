@@ -26,7 +26,7 @@ func (a *App) coreView(c *ui.Context) {
 						a.saveSettings()
 						a.replaceCoreController()
 					}
-					a.label(c, a.t("每次启动 sing-box 时都会显示 Windows 用户帐户控制提示。BoxPilot 本身不会以管理员身份运行。", "Windows User Account Control asks for approval each time sing-box starts. BoxPilot itself does not run as administrator."))
+					a.label(c, a.t("启动 sing-box 时会显示 Windows 用户帐户控制提示；停止时也会再次请求提权。BoxPilot 本身不会以管理员身份运行。", "Windows User Account Control asks for approval when sing-box starts and again when it stops. BoxPilot itself does not run as administrator."))
 				})
 			}
 			if len(a.cpuCoreGroups) > 1 {
@@ -55,7 +55,7 @@ func (a *App) coreView(c *ui.Context) {
 						}
 					}
 					ui.PrimaryButton(c, a.t("应用到本机 sing-box", "Apply to local sing-box")).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
-					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；选择会记忆，重启后自动应用。管理员模式下，启动核心时的一次 UAC 同时授权管理进程应用该设置。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, the single UAC prompt when starting the core also authorizes the supervisor to apply this setting."))
+					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；选择会记忆，重启后自动应用。管理员模式下，应用 CPU Sets 会触发一次单独的 UAC 提权操作。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, applying CPU Sets uses a separate one-shot UAC-elevated action."))
 				})
 			}
 			a.card(c, a.t("服务", "Service"), func() {
