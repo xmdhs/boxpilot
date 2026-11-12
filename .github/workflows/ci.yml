@@ -131,19 +131,12 @@ jobs:
           pattern: boxpilot-*
           path: dist
           merge-multiple: true
-      - name: Package macOS app bundles
-        run: |
-          for app in dist/*.app; do
-            [ -d "$app" ] || continue
-            zip -qry "${app}.zip" "$app"
-            rm -rf "$app"
-          done
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: dist/*
+          files: dist/boxpilot-*
           fail_on_unmatched_files: true
           overwrite_files: true
