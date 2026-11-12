@@ -45,9 +45,13 @@ jobs:
         run: go test -race -timeout=3m ./...
 
   build:
+    needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - goos: linux
@@ -92,36 +96,29 @@ jobs:
             fi
             upx --best --lzma "$binary"
           fi
-      - name: Stage release packages
+      - name: Stage release binary
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: boxpilot/dist/${{ matrix.goos }}-${{ matrix.goarch }}
-          if-no-files-found: error
-          retention-days: 1
-
-  release:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [test, build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Check out BoxPilot
-        uses: actions/checkout@v4
-      - name: Download release binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: boxpilot-*
-          path: dist
-          merge-multiple: true
-      - name: Create or update GitHub Release
+        working-directory: boxpilot
+        run: |
+          mkdir -p release-assets
+          binary=$(find "dist/${{ matrix.goos }}-${{ matrix.goarch }}" -maxdepth 1 -type f \
+            \( -iname 'boxpilot' -o -iname 'boxpilot.exe' \) -print -quit)
+          if [ -z "$binary" ]; then
+            echo "MyGo executable not found in dist/${{ matrix.goos }}-${{ matrix.goarch }}"
+            exit 1
+          fi
+          asset_name="boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = windows ]; then
+            asset_name="$asset_name.exe"
+          fi
+          cp "$binary" "release-assets/$asset_name"
+      - name: Upload binaries to GitHub Release
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: dist/boxpilot-*
+          files: boxpilot/release-assets/*
           fail_on_unmatched_files: true
           overwrite_files: true
