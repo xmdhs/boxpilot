@@ -87,7 +87,8 @@ func RunElevatedCoreAction(args []string) (bool, int, error) {
 		if err != nil {
 			return true, 1, err
 		}
-		return true, runElevatedCoreSupervisor(payload)
+		code, err := runElevatedCoreSupervisor(payload)
+		return true, code, err
 	}
 	if len(args) != 5 {
 		return true, 1, errors.New("invalid elevated process action arguments")
