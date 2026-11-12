@@ -49,19 +49,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
     steps:
       - name: Check out BoxPilot
         uses: actions/checkout@v4
@@ -73,45 +60,43 @@ jobs:
           go-version-file: boxpilot/go.mod
           cache-dependency-path: boxpilot/go.sum
       - name: Install UPX
-        if: matrix.goos == 'linux' || matrix.goos == 'windows'
         run: |
           sudo apt-get update
           sudo apt-get install --yes upx-ucl
-      - name: Build and package with MyGo
+      - name: Build binaries with MyGo
         working-directory: boxpilot
         env:
           CGO_ENABLED: 0
         run: |
-          go run github.com/egoist/mygo/cmd/mygo@latest build \
-            -platform "${{ matrix.goos }}/${{ matrix.goarch }}" \
-            -skip-installer -skip-dmg \
-            -o "dist" .
-          if [ "${{ matrix.goos }}" = linux ] || \
-            { [ "${{ matrix.goos }}" = windows ] && [ "${{ matrix.goarch }}" != arm64 ]; }; then
-            binary=$(find "dist/${{ matrix.goos }}-${{ matrix.goarch }}" -maxdepth 1 -type f \
+          mkdir -p release-assets
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            go run github.com/egoist/mygo/cmd/mygo@latest build \
+              -platform "$target" \
+              -skip-installer -skip-dmg \
+              -o "dist" .
+
+            binary=$(find "dist/${goos}-${goarch}" -maxdepth 1 -type f \
               \( -iname 'boxpilot' -o -iname 'boxpilot.exe' \) -print -quit)
             if [ -z "$binary" ]; then
-              echo "MyGo executable not found in dist/${{ matrix.goos }}-${{ matrix.goarch }}"
+              echo "MyGo executable not found in dist/${goos}-${goarch}"
               exit 1
             fi
-            upx --best --lzma "$binary"
-          fi
-      - name: Stage release binary
-        if: github.event_name == 'workflow_dispatch'
-        working-directory: boxpilot
-        run: |
-          mkdir -p release-assets
-          binary=$(find "dist/${{ matrix.goos }}-${{ matrix.goarch }}" -maxdepth 1 -type f \
-            \( -iname 'boxpilot' -o -iname 'boxpilot.exe' \) -print -quit)
-          if [ -z "$binary" ]; then
-            echo "MyGo executable not found in dist/${{ matrix.goos }}-${{ matrix.goarch }}"
-            exit 1
-          fi
-          asset_name="boxpilot-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = windows ]; then
-            asset_name="$asset_name.exe"
-          fi
-          cp "$binary" "release-assets/$asset_name"
+
+            if [ "$goos" = linux ] || \
+              { [ "$goos" = windows ] && [ "$goarch" != arm64 ]; }; then
+              upx --best --lzma "$binary"
+            fi
+
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+              asset_name="boxpilot-${goos}-${goarch}"
+              if [ "$goos" = windows ]; then
+                asset_name="$asset_name.exe"
+              fi
+              cp "$binary" "release-assets/$asset_name"
+            fi
+          done
       - name: Upload binaries to GitHub Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -119,6 +104,13 @@ jobs:
           tag_name: ${{ inputs.release_tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          draft: true
           files: boxpilot/release-assets/*
           fail_on_unmatched_files: true
           overwrite_files: true
+      - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release edit "$RELEASE_TAG" --draft=false --repo "$GITHUB_REPOSITORY"
