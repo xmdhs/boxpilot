@@ -140,7 +140,7 @@
   "notSupportedByServer": "服务器不支持",
   "notUpdatedYet": "尚未更新",
   "ok": "好",
-  "onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": "仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；选择会记忆，重启后自动应用。管理员模式下，应用 CPU Sets 会触发一次单独的 UAC 提权操作。",
+  "onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": "仅影响 BoxPilot 管理的本地 sing-box 进程。所选核心类型会通过严格的处理器亲和性生效，并在重启后重新应用。管理员模式下，启动后更改亲和性需要单独确认 UAC。",
   "onlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning": "仅管理本应用启动的进程。退出应用时停止；隐藏窗口时继续运行。",
   "openAtLogin": "开机启动",
   "openBoxPilot": "打开 BoxPilot",

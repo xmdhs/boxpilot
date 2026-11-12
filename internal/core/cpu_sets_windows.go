@@ -14,10 +14,15 @@ import (
 
 var (
 	getSystemCPUSetInformation = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetSystemCpuSetInformation")
-	setProcessDefaultCPUSets   = windows.NewLazySystemDLL("kernel32.dll").NewProc("SetProcessDefaultCpuSets")
+	setProcessAffinityMask     = windows.NewLazySystemDLL("kernel32.dll").NewProc("SetProcessAffinityMask")
+	getProcessAffinityMask     = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetProcessAffinityMask")
 )
 
 func detectCPUCoreGroups() []CPUCoreGroup {
+	return classifyCPUCoreGroups(readSystemCPUSetInformation())
+}
+
+func readSystemCPUSetInformation() []cpuSetInfo {
 	if err := getSystemCPUSetInformation.Find(); err != nil {
 		return nil
 	}
@@ -55,41 +60,64 @@ func detectCPUCoreGroups() []CPUCoreGroup {
 		// CpuSetInformation is enum value zero. The union begins at byte 8.
 		if kind == 0 {
 			sets = append(sets, cpuSetInfo{
-				id:              binary.LittleEndian.Uint32(buffer[offset+8 : offset+12]),
-				efficiencyClass: buffer[offset+18],
-				schedulingClass: buffer[offset+20],
+				id:                    binary.LittleEndian.Uint32(buffer[offset+8 : offset+12]),
+				group:                 binary.LittleEndian.Uint16(buffer[offset+12 : offset+14]),
+				logicalProcessorIndex: buffer[offset+14],
+				efficiencyClass:       buffer[offset+18],
+				schedulingClass:       buffer[offset+20],
 			})
 		}
 		offset += size
 	}
-	return classifyCPUCoreGroups(sets)
+	return sets
 }
 
-func setProcessCPUSetIDs(pid int, ids []uint32) error {
+func setProcessCPUAffinity(pid int, ids []uint32) error {
 	if pid <= 0 {
 		return errors.New("invalid sing-box process ID")
 	}
-	handle, err := windows.OpenProcess(0x2000 /* PROCESS_SET_LIMITED_INFORMATION */, false, uint32(pid))
+	handle, err := windows.OpenProcess(0x0200 /* PROCESS_SET_INFORMATION */, false, uint32(pid))
 	if err != nil {
 		return fmt.Errorf("open managed sing-box process: %w", err)
 	}
 	defer windows.CloseHandle(handle)
-	return setProcessCPUSetHandle(handle, ids)
+	return setProcessAffinityHandle(handle, ids)
 }
 
-func setProcessCPUSetHandle(handle windows.Handle, ids []uint32) error {
-	if err := setProcessDefaultCPUSets.Find(); err != nil {
-		return fmt.Errorf("Windows CPU Sets are unavailable: %w", err)
+func setProcessAffinityHandle(handle windows.Handle, ids []uint32) error {
+	if err := setProcessAffinityMask.Find(); err != nil {
+		return fmt.Errorf("Windows processor affinity is unavailable: %w", err)
 	}
-	var idsPointer uintptr
-	if len(ids) > 0 {
-		idsPointer = uintptr(unsafe.Pointer(&ids[0]))
+	var mask uintptr
+	if len(ids) == 0 {
+		if err := getProcessAffinityMask.Find(); err != nil {
+			return fmt.Errorf("read system processor affinity: %w", err)
+		}
+		var processMask, systemMask uintptr
+		ok, _, callErr := getProcessAffinityMask.Call(uintptr(handle), uintptr(unsafe.Pointer(&processMask)), uintptr(unsafe.Pointer(&systemMask)))
+		runtime.KeepAlive(&processMask)
+		runtime.KeepAlive(&systemMask)
+		if ok == 0 {
+			if callErr == windows.ERROR_SUCCESS {
+				callErr = errors.New("GetProcessAffinityMask failed")
+			}
+			return callErr
+		}
+		mask = systemMask
+	} else {
+		var err error
+		mask, err = processorAffinityMask(ids, readSystemCPUSetInformation())
+		if err != nil {
+			return err
+		}
 	}
-	ok, _, callErr := setProcessDefaultCPUSets.Call(uintptr(handle), idsPointer, uintptr(len(ids)))
-	runtime.KeepAlive(ids)
+	if mask == 0 {
+		return errors.New("processor affinity mask is empty")
+	}
+	ok, _, callErr := setProcessAffinityMask.Call(uintptr(handle), mask)
 	if ok == 0 {
 		if callErr == windows.ERROR_SUCCESS {
-			callErr = errors.New("SetProcessDefaultCpuSets failed")
+			callErr = errors.New("SetProcessAffinityMask failed")
 		}
 		return callErr
 	}

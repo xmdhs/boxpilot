@@ -891,7 +891,7 @@
   "notSupportedByServer": "Not supported by server",
   "notUpdatedYet": "Not updated yet",
   "ok": "Ok",
-  "onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, applying CPU Sets uses a separate one-shot UAC-elevated action.",
+  "onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": "Only affects the local sing-box process managed by BoxPilot. The selected core type is enforced with strict processor affinity and reapplied after restart. In administrator mode, changing affinity after startup requires a separate UAC approval.",
   "onlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning": "Only child processes started here are managed. Quit stops the core; hiding keeps it running.",
   "openAtLogin": "Open at login",
   "openBoxPilot": "Open BoxPilot",

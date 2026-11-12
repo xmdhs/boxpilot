@@ -26,7 +26,7 @@ func TestElevatedActionValidatesProcessCreationIdentity(t *testing.T) {
 }
 
 func TestElevatedActionRejectsMalformedArguments(t *testing.T) {
-	for _, args := range [][]string{{elevatedActionArgument}, {elevatedActionArgument, "terminate", "0", "1", "-"}, {elevatedActionArgument, "cpu-sets", "1", "1", "x"}} {
+	for _, args := range [][]string{{elevatedActionArgument}, {elevatedActionArgument, "terminate", "0", "1", "-"}, {elevatedActionArgument, "processor-affinity", "1", "1", "x"}, {elevatedActionArgument, "start-core", "not-base64"}} {
 		handled, code, err := RunElevatedCoreAction(args)
 		if !handled || code == 0 || err == nil {
 			t.Errorf("accepted malformed elevated action %v: handled=%v code=%d err=%v", args, handled, code, err)

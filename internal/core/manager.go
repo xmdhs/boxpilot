@@ -87,7 +87,7 @@ func (m *Manager) deliver() {
 func (m *Manager) State() State  { m.mu.Lock(); defer m.mu.Unlock(); return m.snapshotLocked() }
 func (m *Manager) Running() bool { m.mu.Lock(); defer m.mu.Unlock(); return m.state.Phase == "running" }
 
-func (m *Manager) SetCPUSetIDs(ctx context.Context, ids []uint32) error {
+func (m *Manager) SetCPUAffinity(ctx context.Context, ids []uint32) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -101,10 +101,10 @@ func (m *Manager) SetCPUSetIDs(ctx context.Context, ids []uint32) error {
 	pid := proc.PID()
 	m.mu.Unlock()
 	ids = append([]uint32(nil), ids...)
-	if setter, ok := proc.(interface{ SetCPUSetIDs([]uint32) error }); ok {
-		return setter.SetCPUSetIDs(ids)
+	if setter, ok := proc.(interface{ SetCPUAffinity([]uint32) error }); ok {
+		return setter.SetCPUAffinity(ids)
 	}
-	return setProcessCPUSetIDs(pid, ids)
+	return setProcessCPUAffinity(pid, ids)
 }
 func (m *Manager) finish(r *managedRun, err error) {
 	cleanupErr := cleanupRunDirectory(r.dir)
@@ -290,14 +290,18 @@ func (m *Manager) Start(ctx context.Context, binary string, p Profile, allowAPIR
 	m.notifyLocked()
 	m.mu.Unlock()
 	if len(startupCPUSetIDs) > 0 {
-		var applyErr error
-		if setter, ok := proc.(interface{ SetCPUSetIDs([]uint32) error }); ok {
-			applyErr = setter.SetCPUSetIDs(startupCPUSetIDs)
+		if applied, ok := proc.(interface{ StartupCPUAffinityApplied() bool }); ok && applied.StartupCPUAffinityApplied() {
+			// The elevated startup helper applies affinity before reporting the child.
 		} else {
-			applyErr = setProcessCPUSetIDs(proc.PID(), startupCPUSetIDs)
-		}
-		if err := applyErr; err != nil {
-			return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
+			var applyErr error
+			if setter, ok := proc.(interface{ SetCPUAffinity([]uint32) error }); ok {
+				applyErr = setter.SetCPUAffinity(startupCPUSetIDs)
+			} else {
+				applyErr = setProcessCPUAffinity(proc.PID(), startupCPUSetIDs)
+			}
+			if err := applyErr; err != nil {
+				return fail(fmt.Errorf("apply CPU scheduling to managed sing-box: %w", err))
+			}
 		}
 	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)

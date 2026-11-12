@@ -30,6 +30,31 @@ func TestClassifyCPUCoreGroups(t *testing.T) {
 	}
 }
 
+func TestProcessorAffinityMaskMapsSelectedCPUSetIDs(t *testing.T) {
+	sets := []cpuSetInfo{
+		{id: 10, group: 0, logicalProcessorIndex: 1},
+		{id: 11, group: 0, logicalProcessorIndex: 4},
+		{id: 12, group: 0, logicalProcessorIndex: 5},
+	}
+	mask, err := processorAffinityMask([]uint32{11, 12}, sets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := uintptr(1<<4 | 1<<5); mask != want {
+		t.Fatalf("affinity mask = %#x, want %#x", mask, want)
+	}
+}
+
+func TestProcessorAffinityMaskRejectsMultipleGroups(t *testing.T) {
+	sets := []cpuSetInfo{
+		{id: 1, group: 0, logicalProcessorIndex: 0},
+		{id: 2, group: 1, logicalProcessorIndex: 0},
+	}
+	if _, err := processorAffinityMask([]uint32{1, 2}, sets); err == nil {
+		t.Fatal("expected multiple processor groups to be rejected")
+	}
+}
+
 func TestClassifyCPUCoreGroupsWithoutHeterogeneousEfficiency(t *testing.T) {
 	sets := []cpuSetInfo{
 		{id: 0, efficiencyClass: 1, schedulingClass: 0},

@@ -675,7 +675,7 @@ func (a *App) startCore(replace bool) {
 		return nil
 	}, func() {
 		if errors.Is(startErr, core.ErrAPIConflict) && !replace {
-			a.confirm(locales.In(a.language()).ConfigurationAlreadyHasAnAPIService(), locales.In(a.language()).InTheRuntimeCopyOnlyReplaceExistingTypeApiEntriesWithAnAuthenticated127001APIOnARandomPortDisableDashboardHostingOtherServicesAndTheOriginalFileRemainUnchangedContinue(), func() { a.startCore(true) })
+			a.startCore(true)
 			return
 		}
 		if startErr != nil {

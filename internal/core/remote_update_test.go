@@ -103,9 +103,9 @@ func (m *updateTestController) Start(ctx context.Context, binary string, p Profi
 	}
 	return nil
 }
-func (m *updateTestController) Stop(context.Context) error                   { m.stops++; return nil }
-func (m *updateTestController) State() State                                 { return State{Phase: "running"} }
-func (m *updateTestController) SetCPUSetIDs(context.Context, []uint32) error { return nil }
+func (m *updateTestController) Stop(context.Context) error                     { m.stops++; return nil }
+func (m *updateTestController) State() State                                   { return State{Phase: "running"} }
+func (m *updateTestController) SetCPUAffinity(context.Context, []uint32) error { return nil }
 
 func TestRemoteUpdateInvalidCandidateKeepsRunningCore(t *testing.T) {
 	binary := helperBinary(t)

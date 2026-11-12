@@ -4,12 +4,16 @@ package core
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -18,12 +22,16 @@ import (
 const elevatedActionArgument = "--boxpilot-elevated-action"
 
 type elevatedWindowsProcess struct {
-	handle   windows.Handle
-	pid      int
-	creation uint64
+	handle                 windows.Handle
+	pid                    int
+	creation               uint64
+	startupAffinityApplied bool
 }
 
 func (p *elevatedWindowsProcess) PID() int { return p.pid }
+func (p *elevatedWindowsProcess) StartupCPUAffinityApplied() bool {
+	return p.startupAffinityApplied
+}
 func (p *elevatedWindowsProcess) Wait() error {
 	defer windows.CloseHandle(p.handle)
 	_, err := windows.WaitForSingleObject(p.handle, windows.INFINITE)
@@ -45,8 +53,8 @@ func (p *elevatedWindowsProcess) GracefulStop() error {
 func (p *elevatedWindowsProcess) Kill() error {
 	return runElevatedAction("terminate", p.pid, p.creation, nil)
 }
-func (p *elevatedWindowsProcess) SetCPUSetIDs(ids []uint32) error {
-	return runElevatedAction("cpu-sets", p.pid, p.creation, ids)
+func (p *elevatedWindowsProcess) SetCPUAffinity(ids []uint32) error {
+	return runElevatedAction("processor-affinity", p.pid, p.creation, ids)
 }
 
 func processCreationTime(handle windows.Handle) (uint64, error) {
@@ -55,11 +63,31 @@ func processCreationTime(handle windows.Handle) (uint64, error) {
 	return uint64(creation.HighDateTime)<<32 | uint64(creation.LowDateTime), err
 }
 
-// RunElevatedCoreAction handles one-shot, UAC-elevated process operations.
+type elevatedCoreStartPayload struct {
+	Binary    string   `json:"binary"`
+	Args      []string `json:"args"`
+	Dir       string   `json:"dir"`
+	CPUSetIDs []uint32 `json:"cpuSetIds"`
+	Result    string   `json:"result"`
+}
+
+type elevatedCoreStartResult struct {
+	PID      int    `json:"pid"`
+	Creation uint64 `json:"creation"`
+}
+
+// RunElevatedCoreAction handles UAC-elevated startup and process operations.
 // It reopens by PID only to verify identity, then operates on that held handle.
 func RunElevatedCoreAction(args []string) (bool, int, error) {
 	if len(args) == 0 || args[0] != elevatedActionArgument {
 		return false, 0, nil
+	}
+	if len(args) == 3 && args[1] == "start-core" {
+		payload, err := decodeElevatedCoreStartPayload(args[2])
+		if err != nil {
+			return true, 1, err
+		}
+		return true, runElevatedCoreSupervisor(payload)
 	}
 	if len(args) != 5 {
 		return true, 1, errors.New("invalid elevated process action arguments")
@@ -72,7 +100,7 @@ func RunElevatedCoreAction(args []string) (bool, int, error) {
 	if err != nil || creation == 0 {
 		return true, 1, errors.New("invalid sing-box process identity")
 	}
-	handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE|0x2000, false, uint32(pid))
+	handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE|0x0200, false, uint32(pid))
 	if err != nil {
 		return true, 1, fmt.Errorf("open managed sing-box process: %w", err)
 	}
@@ -86,12 +114,12 @@ func RunElevatedCoreAction(args []string) (bool, int, error) {
 		if err = windows.TerminateProcess(handle, 1); err != nil {
 			return true, 1, fmt.Errorf("terminate managed sing-box: %w", err)
 		}
-	case "cpu-sets":
+	case "processor-affinity":
 		ids, parseErr := parseCPUSetIDs(args[4])
 		if parseErr != nil {
 			return true, 1, parseErr
 		}
-		if err = setProcessCPUSetHandle(handle, ids); err != nil {
+		if err = setProcessAffinityHandle(handle, ids); err != nil {
 			return true, 1, err
 		}
 	default:
@@ -100,7 +128,66 @@ func RunElevatedCoreAction(args []string) (bool, int, error) {
 	return true, 0, nil
 }
 
-func startElevatedCoreProcess(ctx context.Context, path string, args []string, dir string, _ []uint32) (managedProcess, error) {
+func decodeElevatedCoreStartPayload(encoded string) (elevatedCoreStartPayload, error) {
+	var payload elevatedCoreStartPayload
+	data, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return payload, fmt.Errorf("decode elevated core startup request: %w", err)
+	}
+	if err = json.Unmarshal(data, &payload); err != nil {
+		return payload, fmt.Errorf("parse elevated core startup request: %w", err)
+	}
+	if payload.Binary == "" || payload.Dir == "" || payload.Result == "" || len(payload.CPUSetIDs) == 0 {
+		return payload, errors.New("incomplete elevated core startup request")
+	}
+	return payload, nil
+}
+
+func runElevatedCoreSupervisor(payload elevatedCoreStartPayload) (int, error) {
+	cmd := exec.Command(payload.Binary, payload.Args...)
+	cmd.Dir = payload.Dir
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
+	if err := cmd.Start(); err != nil {
+		return 1, fmt.Errorf("start elevated sing-box: %w", err)
+	}
+	if err := setProcessCPUAffinity(cmd.Process.Pid, payload.CPUSetIDs); err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return 1, fmt.Errorf("apply startup processor affinity: %w", err)
+	}
+	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(cmd.Process.Pid))
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return 1, fmt.Errorf("inspect elevated sing-box process: %w", err)
+	}
+	creation, err := processCreationTime(handle)
+	windows.CloseHandle(handle)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return 1, fmt.Errorf("read elevated sing-box process identity: %w", err)
+	}
+	result, err := json.Marshal(elevatedCoreStartResult{PID: cmd.Process.Pid, Creation: creation})
+	if err == nil {
+		err = os.WriteFile(payload.Result, result, 0600)
+	}
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return 1, fmt.Errorf("publish elevated sing-box process identity: %w", err)
+	}
+	if err = cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return exitErr.ExitCode(), nil
+		}
+		return 1, err
+	}
+	return 0, nil
+}
+
+func startElevatedCoreProcess(ctx context.Context, path string, args []string, dir string, cpuSetIDs []uint32) (managedProcess, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -108,7 +195,64 @@ func startElevatedCoreProcess(ctx context.Context, path string, args []string, d
 	if err != nil {
 		return nil, err
 	}
-	return launchRunAs(ctx, binary, args, dir)
+	if len(cpuSetIDs) == 0 {
+		return launchRunAs(ctx, binary, args, dir)
+	}
+	resultFile, err := os.CreateTemp(dir, ".elevated-start-*.json")
+	if err != nil {
+		return nil, fmt.Errorf("prepare elevated startup handshake: %w", err)
+	}
+	resultPath := resultFile.Name()
+	if err = resultFile.Close(); err != nil {
+		_ = os.Remove(resultPath)
+		return nil, err
+	}
+	defer os.Remove(resultPath)
+	payload := elevatedCoreStartPayload{Binary: binary, Args: args, Dir: dir, CPUSetIDs: append([]uint32(nil), cpuSetIDs...), Result: resultPath}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	encoded := base64.RawURLEncoding.EncodeToString(data)
+	supervisor, err := launchRunAs(ctx, "", []string{elevatedActionArgument, "start-core", encoded}, "")
+	if err != nil {
+		return nil, err
+	}
+	proc, ok := supervisor.(*elevatedWindowsProcess)
+	if !ok {
+		return nil, errors.New("unexpected elevated startup process")
+	}
+	for {
+		data, readErr := os.ReadFile(resultPath)
+		if readErr == nil {
+			var result elevatedCoreStartResult
+			if err = json.Unmarshal(data, &result); err != nil || result.PID <= 0 || result.Creation == 0 {
+				_ = proc.Kill()
+				return nil, errors.New("invalid elevated sing-box startup result")
+			}
+			proc.pid = result.PID
+			proc.creation = result.Creation
+			proc.startupAffinityApplied = true
+			return proc, nil
+		}
+		if !errors.Is(readErr, os.ErrNotExist) {
+			_ = proc.Kill()
+			return nil, fmt.Errorf("read elevated sing-box startup result: %w", readErr)
+		}
+		wait, waitErr := windows.WaitForSingleObject(proc.handle, 0)
+		if waitErr != nil {
+			return nil, waitErr
+		}
+		if wait == windows.WAIT_OBJECT_0 {
+			return nil, proc.Wait()
+		}
+		select {
+		case <-ctx.Done():
+			_ = proc.Kill()
+			return nil, ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 }
 
 func runElevatedAction(action string, pid int, creation uint64, ids []uint32) error {

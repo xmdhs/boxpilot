@@ -60,7 +60,7 @@ func (a *App) applyCPUCoreChoice() {
 		return
 	}
 	a.do("cpu-core-selection", func(ctx context.Context) error {
-		return manager.SetCPUSetIDs(ctx, ids)
+		return manager.SetCPUAffinity(ctx, ids)
 	}, nil)
 }
 
