@@ -2030,7 +2030,7 @@ func (msgs Messages) Ok() string {
 	return Catalog.Format(msgs.locale, "ok", nil)
 }
 
-// OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction says "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; t…"
+// OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction says "Only affects the local sing-box process managed by BoxPilot. The selected core type is enforced with strict processor…"
 // in the language the app shows.
 //
 // BoxPilot user-interface text.
@@ -2038,7 +2038,7 @@ func OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPrefere
 	return In(i18n.Locale()).OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction()
 }
 
-// OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction says "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; t…"
+// OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction says "Only affects the local sing-box process managed by BoxPilot. The selected core type is enforced with strict processor…"
 // in the language of msgs.
 //
 // BoxPilot user-interface text.
