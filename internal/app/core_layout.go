@@ -66,9 +66,9 @@ func (a *App) profileRow(c *ui.Context, profile core.Profile) {
 		border = a.palette.accent.Alpha(.35)
 	}
 
-	ui.Row(c.Key("profile-row-"+profile.ID)).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(8).Padding(10).Radius(12).Background(background).Border(1, border).Children(func() {
+	ui.Row(c.Key("profile-row-"+profile.ID)).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(8).Padding(10).Radius(12).Background(background).Border(1, border).Transition(interactionTransition).Children(func() {
 		selectLabel := locales.In(a.language()).SelectProfile() + ": " + profile.Name
-		selectButton := ui.ButtonBase(c.Key("profile-select-" + profile.ID)).FillWidth().Grow(1).MinWidth(0).Padding(4).Radius(8).Label(selectLabel).Tooltip(selectLabel)
+		selectButton := ui.ButtonBase(c.Key("profile-select-" + profile.ID)).FillWidth().Grow(1).MinWidth(0).Padding(4).Radius(8).Label(selectLabel).Tooltip(selectLabel).Transition(interactionTransition)
 		if selectButton.Hovered() {
 			selectButton.Background(a.palette.hover)
 		}
@@ -148,15 +148,15 @@ func (a *App) coreBinarySettings(c *ui.Context) {
 		paths = append(paths, a.settings.CorePath)
 	}
 	a.field(c, locales.In(a.language()).SelectedExecutable(), func() {
-		if ui.Select(c, &a.settings.CorePath, paths).FillWidth().Label(locales.In(a.language()).CorePath()).Changed() {
+		if transitionedSelect(c, &a.settings.CorePath, paths).FillWidth().Label(locales.In(a.language()).CorePath()).Changed() {
 			a.saveSettings()
 		}
 	})
 	ui.Column(c).FillWidth().Gap(8).Children(func() {
-		ui.TextInput(c, &a.externalBinary).FillWidth().MinWidth(0).Placeholder(locales.In(a.language()).AbsolutePathToAnExistingSingBoxBinary()).Label(locales.In(a.language()).ExistingBinaryPath())
+		transitionedTextInput(c, &a.externalBinary).FillWidth().MinWidth(0).Placeholder(locales.In(a.language()).AbsolutePathToAnExistingSingBoxBinary()).Label(locales.In(a.language()).ExistingBinaryPath())
 		ui.Row(c).FillWidth().Gap(8).Wrap().Children(func() {
-			ui.Button(c, locales.In(a.language()).Browse()).OnClick(a.browseCore)
-			ui.Button(c, locales.In(a.language()).VerifyUse()).Disabled(a.busy["inspect"] || tidy(a.externalBinary) == "").OnClick(a.inspectCore)
+			transitionedButton(c, locales.In(a.language()).Browse()).OnClick(a.browseCore)
+			transitionedButton(c, locales.In(a.language()).VerifyUse()).Disabled(a.busy["inspect"] || tidy(a.externalBinary) == "").OnClick(a.inspectCore)
 		})
 	})
 	ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
@@ -165,13 +165,13 @@ func (a *App) coreBinarySettings(c *ui.Context) {
 		if a.releaseChannel == "prerelease" {
 			selected = releaseOptions[1]
 		}
-		if ui.Select(c, &selected, releaseOptions).Width(130).Label(locales.In(a.language()).UpdateTrack()).Changed() {
+		if transitionedSelect(c, &selected, releaseOptions).Width(130).Label(locales.In(a.language()).UpdateTrack()).Changed() {
 			a.releaseChannel = "stable"
 			if selected == releaseOptions[1] {
 				a.releaseChannel = "prerelease"
 			}
 		}
-		ui.Button(c, locales.In(a.language()).CheckUpdate()).Disabled(a.busy["releases"]).OnClick(a.checkReleases)
+		transitionedButton(c, locales.In(a.language()).CheckUpdate()).Disabled(a.busy["releases"]).OnClick(a.checkReleases)
 		if a.busy["releases"] {
 			ui.Spinner(c)
 		}
@@ -191,8 +191,8 @@ func (a *App) coreBinarySettings(c *ui.Context) {
 			a.releaseChoice = versions[0]
 		}
 		ui.Column(c).FillWidth().Gap(8).Children(func() {
-			ui.Select(c, &a.releaseChoice, versions).FillWidth().Label(locales.In(a.language()).Version())
-			ui.PrimaryButton(c, locales.In(a.language()).Install()).AlignSelf(ui.Start).Disabled(a.busy["install"]).OnClick(func() {
+			transitionedSelect(c, &a.releaseChoice, versions).FillWidth().Label(locales.In(a.language()).Version())
+			transitionedPrimaryButton(c, locales.In(a.language()).Install()).AlignSelf(ui.Start).Disabled(a.busy["install"]).OnClick(func() {
 				a.confirm(locales.In(a.language()).Install(), locales.In(a.language()).DownloadFromOfficialReleasesVerifySHA256AndInstallTheCoreWillNotStartOrRestartAutomatically()+"\n"+a.releaseChoice, a.installCore)
 			})
 		})

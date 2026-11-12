@@ -14,7 +14,7 @@ import (
 
 func (a *App) connections(c *ui.Context) {
 	a.pageTitle(c, locales.In(a.language()).Connections(), func() {
-		ui.Button(c, locales.In(a.language()).CloseAllConnections()).Disabled(a.client == nil).OnClick(func() {
+		transitionedButton(c, locales.In(a.language()).CloseAllConnections()).Disabled(a.client == nil).OnClick(func() {
 			a.confirm(locales.In(a.language()).CloseAllConnections(), "", func() {
 				a.rpc("close-all", func(ctx context.Context, client *api.Client) error { return client.CloseAllConnections(ctx) })
 			})
@@ -79,7 +79,7 @@ func (a *App) connections(c *ui.Context) {
 	ui.List(c.Key("connections-list"), &a.connectionList, len(rows), func(i int) {
 		row := rows[i]
 		conn := row.Connection
-		b := ui.ButtonBase(c.Key(conn.GetId())).FillWidth().Padding(15).Radius(12).Background(a.palette.card).Border(1, a.palette.border).Label(conn.GetId())
+		b := ui.ButtonBase(c.Key(conn.GetId())).FillWidth().Padding(15).Radius(12).Background(a.palette.card).Border(1, a.palette.border).Label(conn.GetId()).Transition(interactionTransition)
 		if b.Hovered() {
 			b.Background(a.palette.hover)
 		}
@@ -188,7 +188,7 @@ func (a *App) connectionDetail(c *ui.Context, row model.ConnectionRow) {
 							})
 						}
 						if row.ClosedAt == 0 {
-							ui.Button(c, locales.In(a.language()).CloseConnection()).TextColor(a.palette.danger).OnClick(func() {
+							transitionedButton(c, locales.In(a.language()).CloseConnection()).TextColor(a.palette.danger).OnClick(func() {
 								id := conn.GetId()
 								a.rpc("close-"+id, func(ctx context.Context, client *api.Client) error { return client.CloseConnection(ctx, id) })
 								a.detailID = ""

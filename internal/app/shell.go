@@ -123,7 +123,7 @@ func (a *App) sidebar(c *ui.Context) {
 					a.label(c, a.snapshot.Version).FontSize(10)
 				}
 			})
-			ui.Button(c, locales.In(a.language()).Quit()).FillWidth().OnClick(mygo.App.Quit)
+			transitionedButton(c, locales.In(a.language()).Quit()).FillWidth().OnClick(mygo.App.Quit)
 		})
 	})
 }
@@ -162,7 +162,7 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 			if a.coreState.Phase == "running" {
 				label = locales.In(a.language()).Stop()
 			}
-			ui.Button(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
+			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
 		} else if a.settings.ActiveID != localID && a.settings.ActiveID != "" {
 			a.iconButton(c, "reconnect", locales.In(a.language()).Retry(), "↻", func() { a.activate(a.settings.ActiveID) })
 		}
@@ -233,8 +233,8 @@ func (a *App) dialogs(c *ui.Context) {
 		ui.Text(c, locales.In(a.language()).Error()).FontSize(20).Bold()
 		ui.Scroll(c).MaxHeight(300).Children(func() { ui.Text(c, a.errorText).Selectable().Font("monospace").FontSize(12) })
 		ui.Row(c).Gap(10).Justify(ui.End).Children(func() {
-			ui.Button(c, locales.In(a.language()).Copy()).OnClick(func() { services.WriteClipboard(a.errorText) })
-			ui.PrimaryButton(c, locales.In(a.language()).Ok()).OnClick(func() { a.errorOpen = false })
+			transitionedButton(c, locales.In(a.language()).Copy()).OnClick(func() { services.WriteClipboard(a.errorText) })
+			transitionedPrimaryButton(c, locales.In(a.language()).Ok()).OnClick(func() { a.errorOpen = false })
 		})
 	})
 	ui.DialogBase(c.Key("confirm-dialog"), &a.confirmOpen, func(back, panel ui.Element) {
@@ -244,8 +244,8 @@ func (a *App) dialogs(c *ui.Context) {
 		ui.Text(c, a.confirmTitle).FontSize(20).Bold()
 		ui.Text(c, a.confirmMessage)
 		ui.Row(c).Justify(ui.End).Gap(10).Children(func() {
-			ui.Button(c, locales.In(a.language()).Cancel()).OnClick(func() { a.confirmOpen = false })
-			ui.PrimaryButton(c, a.confirmButtonLabel()).OnClick(func() {
+			transitionedButton(c, locales.In(a.language()).Cancel()).OnClick(func() { a.confirmOpen = false })
+			transitionedPrimaryButton(c, a.confirmButtonLabel()).OnClick(func() {
 				action := a.confirmAction
 				a.confirmOpen = false
 				a.confirmAction = nil

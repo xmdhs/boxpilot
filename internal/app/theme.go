@@ -106,6 +106,36 @@ func (a *App) setLanguage(language string) {
 func (a *App) label(c *ui.Context, s string) ui.Element {
 	return ui.Text(c, s).TextColor(a.palette.muted).FontSize(12)
 }
+
+func transitionedButton(c *ui.Context, label string) ui.Element {
+	return ui.Button(c, label).Transition(interactionTransition)
+}
+
+func transitionedPrimaryButton(c *ui.Context, label string) ui.Element {
+	return ui.PrimaryButton(c, label).Transition(interactionTransition)
+}
+
+// transitionedSelect animates the select trigger's colors; MyGo owns the popup.
+func transitionedSelect(c *ui.Context, selected *string, options []string) ui.Element {
+	return ui.Select(c, selected, options).Transition(interactionTransition)
+}
+
+func transitionedSwitch(c *ui.Context, on *bool) ui.Element {
+	return ui.Switch(c, on).Transition(interactionTransition)
+}
+
+func transitionedCheckbox(c *ui.Context, checked *bool, label string) ui.Element {
+	return ui.Checkbox(c, checked, label).Transition(interactionTransition)
+}
+
+func transitionedTextInput(c *ui.Context, value *string) ui.Element {
+	return ui.TextInput(c, value).Transition(interactionTransition)
+}
+
+func transitionedSegmented(c *ui.Context, selected *int, labels ...string) ui.Element {
+	return ui.Segmented(c, selected, labels...).Transition(interactionTransition)
+}
+
 func (a *App) heading(c *ui.Context, title string) {
 	ui.Text(c, title).Font("Source Serif 4, Georgia, serif").FontSize(27).FontWeight(560).TextColor(a.palette.text)
 }

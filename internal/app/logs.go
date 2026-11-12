@@ -36,7 +36,7 @@ func (a *App) logs(c *ui.Context) {
 		if a.logsPaused {
 			pause = locales.In(a.language()).ResumeUpdates()
 		}
-		ui.Button(c, pause).OnClick(func() {
+		transitionedButton(c, pause).OnClick(func() {
 			a.logsPaused = !a.logsPaused
 			if a.logsPaused {
 				a.frozenLogs = append([]model.LogEntry(nil), a.snapshot.Logs...)
@@ -45,7 +45,7 @@ func (a *App) logs(c *ui.Context) {
 				a.logList.ScrollToEnd()
 			}
 		})
-		if ui.Button(c, locales.In(a.language()).CopyLogs()).Clicked() {
+		if transitionedButton(c, locales.In(a.language()).CopyLogs()).Clicked() {
 			var b strings.Builder
 			for _, e := range a.visibleLogs() {
 				b.WriteString(a.redactSensitive(plainLog(e.Message)))
@@ -58,7 +58,7 @@ func (a *App) logs(c *ui.Context) {
 				}
 			})
 		}
-		ui.Button(c, locales.In(a.language()).ClearLogs()).Disabled(a.client == nil).OnClick(func() {
+		transitionedButton(c, locales.In(a.language()).ClearLogs()).Disabled(a.client == nil).OnClick(func() {
 			a.confirm(locales.In(a.language()).ClearLogs(), "", func() {
 				a.rpc("clear-logs", func(ctx context.Context, client *api.Client) error { return client.ClearLogs(ctx) })
 			})

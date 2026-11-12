@@ -37,7 +37,7 @@ func (a *App) overview(c *ui.Context) {
 			if a.coreState.Phase == "running" {
 				label = locales.In(a.language()).Stop()
 			}
-			ui.Button(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
+			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
 		}
 		a.iconButton(c, "manage-cards", locales.In(a.language()).DashboardItems(), "⚙", func() { a.cardDialog = true })
 	})
@@ -46,8 +46,8 @@ func (a *App) overview(c *ui.Context) {
 		a.card(c, locales.In(a.language()).GetStartedWithBoxPilot(), func() {
 			ui.Text(c, locales.In(a.language()).ChooseAWayToConnectToSingBoxAddARemoteServerOrSetUpALocalCore()).TextColor(a.palette.muted).FillWidth()
 			ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-				ui.PrimaryButton(c, locales.In(a.language()).ConnectToARemoteServer()).OnClick(func() { a.editServer("") })
-				ui.Button(c, locales.In(a.language()).SetUpALocalCore()).OnClick(func() { a.page = "core" })
+				transitionedPrimaryButton(c, locales.In(a.language()).ConnectToARemoteServer()).OnClick(func() { a.editServer("") })
+				transitionedButton(c, locales.In(a.language()).SetUpALocalCore()).OnClick(func() { a.page = "core" })
 			})
 		})
 		return
@@ -56,8 +56,8 @@ func (a *App) overview(c *ui.Context) {
 		a.overviewProfile(c)
 		a.card(c, "", func() {
 			ui.Row(c).Gap(10).Wrap().Children(func() {
-				ui.PrimaryButton(c, locales.In(a.language()).Core()).OnClick(func() { a.page = "core" })
-				ui.Button(c, locales.In(a.language()).Connect()).OnClick(func() { a.editServer("") })
+				transitionedPrimaryButton(c, locales.In(a.language()).Core()).OnClick(func() { a.page = "core" })
+				transitionedButton(c, locales.In(a.language()).Connect()).OnClick(func() { a.editServer("") })
 			})
 		})
 		return
@@ -170,7 +170,7 @@ func (a *App) overviewProfile(c *ui.Context) {
 			a.profileRow(c, profile)
 		}
 		ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-			ui.Button(c, locales.In(a.language()).NewProfile()).OnClick(func() {
+			transitionedButton(c, locales.In(a.language()).NewProfile()).OnClick(func() {
 				a.profileID = ""
 				a.profileType = "local"
 				a.profileName = locales.In(a.language()).NewProfile()
@@ -179,8 +179,8 @@ func (a *App) overviewProfile(c *ui.Context) {
 				a.profileDirty = false
 				a.profileEditor = true
 			})
-			ui.Button(c, locales.In(a.language()).Remote()).OnClick(func() { a.newRemoteProfile("", "") })
-			ui.Button(c, locales.In(a.language()).ImportFromFile()).OnClick(a.importProfile)
+			transitionedButton(c, locales.In(a.language()).Remote()).OnClick(func() { a.newRemoteProfile("", "") })
+			transitionedButton(c, locales.In(a.language()).ImportFromFile()).OnClick(a.importProfile)
 		})
 	})
 }
@@ -230,13 +230,13 @@ func (a *App) cardManager(c *ui.Context) {
 			})
 		}
 		ui.Row(c).Gap(10).FillWidth().Children(func() {
-			ui.Button(c, locales.In(a.language()).Reset()).OnClick(func() {
+			transitionedButton(c, locales.In(a.language()).Reset()).OnClick(func() {
 				a.settings.Cards = append([]string(nil), cardIDs...)
 				a.settings.DisabledCards = nil
 				a.saveSettings()
 			})
 			ui.Spacer(c)
-			ui.PrimaryButton(c, locales.In(a.language()).Done()).OnClick(func() { a.cardDialog = false })
+			transitionedPrimaryButton(c, locales.In(a.language()).Done()).OnClick(func() { a.cardDialog = false })
 		})
 	})
 }

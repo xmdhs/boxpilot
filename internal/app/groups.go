@@ -102,7 +102,7 @@ func (a *App) groups(c *ui.Context) {
 						})
 					})
 					if a.groupExpanded(g) {
-						ui.Row(c).Wrap().AlignItems(ui.Stretch).Gap(9).FillWidth().Children(func() {
+						ui.Row(c.Key("group-items-" + g.GetTag())).Wrap().AlignItems(ui.Stretch).Gap(9).FillWidth().Transition(groupContentTransition).Children(func() {
 							for _, item := range g.GetItems() {
 								item := item
 								b := ui.ButtonBase(c.Key(item.GetTag())).Basis(groupItemMinWidth(windowWidth)).Grow(1).MinWidth(0).Padding(12).Radius(10).Border(1, a.palette.border).MinHeight(68).Label(item.GetTag()).Transition(interactionTransition)
@@ -137,7 +137,7 @@ func (a *App) groups(c *ui.Context) {
 							}
 						})
 					} else {
-						ui.Row(c).Gap(5).Wrap().Children(func() {
+						ui.Row(c.Key("group-dots-" + g.GetTag())).Gap(5).Wrap().Transition(groupContentTransition).Children(func() {
 							for _, item := range g.GetItems() {
 								color := a.delayColor(item.GetUrlTestDelay())
 								selected := item.GetTag() == g.GetSelected()

@@ -12,6 +12,15 @@ var interactionTransition = ui.ElementTransition{
 	Colors:   true,
 }
 
+// 策略组内容展开/收起时轻微滑动并淡入淡出。
+var groupContentTransition = ui.ElementTransition{
+	Duration:     180 * time.Millisecond,
+	ExitDuration: 120 * time.Millisecond,
+	Colors:       true,
+	Enter:        &ui.Motion{Y: 4, Opacity: 0},
+	Exit:         &ui.Motion{Y: -4, Opacity: 0},
+}
+
 // 页面只播放入场动画，切换时不保留旧页面，也不延迟新页面的操作。
 var pageTransition = ui.ElementTransition{
 	Duration: 250 * time.Millisecond,

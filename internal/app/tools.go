@@ -14,8 +14,8 @@ import (
 func (a *App) tools(c *ui.Context) {
 	a.pageTitle(c, locales.In(a.language()).Tools(), nil)
 	ui.Row(c).Gap(10).Children(func() {
-		ui.Button(c, locales.In(a.language()).NetworkQuality()).OnClick(func() { a.tool = "quality" })
-		ui.Button(c, locales.In(a.language()).StunTest()).OnClick(func() { a.tool = "stun" })
+		transitionedButton(c, locales.In(a.language()).NetworkQuality()).OnClick(func() { a.tool = "quality" })
+		transitionedButton(c, locales.In(a.language()).StunTest()).OnClick(func() { a.tool = "stun" })
 	})
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
@@ -38,7 +38,7 @@ func (a *App) tools(c *ui.Context) {
 							}
 						}
 						a.field(c, locales.In(a.language()).MaxRuntime(), func() {
-							if ui.Select(c, &runtimeOption, runtimeOptions).Width(100).Changed() {
+							if transitionedSelect(c, &runtimeOption, runtimeOptions).Width(100).Changed() {
 								for i, option := range runtimeOptions {
 									if runtimeOption == option {
 										a.toolRuntime = runtimeValues[i]
@@ -47,8 +47,8 @@ func (a *App) tools(c *ui.Context) {
 								}
 							}
 						})
-						ui.Checkbox(c, &a.toolSerial, locales.In(a.language()).Serial())
-						ui.Checkbox(c, &a.toolHTTP3, "HTTP/3")
+						transitionedCheckbox(c, &a.toolSerial, locales.In(a.language()).Serial())
+						transitionedCheckbox(c, &a.toolHTTP3, "HTTP/3")
 					})
 				} else {
 					a.field(c, locales.In(a.language()).Server(), func() {
@@ -68,7 +68,7 @@ func (a *App) tools(c *ui.Context) {
 							outboundOption = outboundOptions[i]
 						}
 					}
-					if ui.Select(c, &outboundOption, outboundOptions).FillWidth().Label(locales.In(a.language()).Outbound()).Changed() {
+					if transitionedSelect(c, &outboundOption, outboundOptions).FillWidth().Label(locales.In(a.language()).Outbound()).Changed() {
 						for i, option := range outboundOptions {
 							if outboundOption == option {
 								a.toolOutbound = outboundValues[i]
@@ -78,8 +78,8 @@ func (a *App) tools(c *ui.Context) {
 					}
 				})
 				ui.Row(c).Gap(10).Children(func() {
-					ui.PrimaryButton(c, locales.In(a.language()).StartTest()).Disabled(a.client == nil || a.busy["tool"]).OnClick(a.startTool)
-					ui.Button(c, locales.In(a.language()).CancelTest()).Disabled(!a.busy["tool"]).OnClick(func() {
+					transitionedPrimaryButton(c, locales.In(a.language()).StartTest()).Disabled(a.client == nil || a.busy["tool"]).OnClick(a.startTool)
+					transitionedButton(c, locales.In(a.language()).CancelTest()).Disabled(!a.busy["tool"]).OnClick(func() {
 						if cancel := a.jobs["tool"]; cancel != nil {
 							cancel()
 						}

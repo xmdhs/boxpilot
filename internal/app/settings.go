@@ -31,7 +31,7 @@ func (a *App) settingsView(c *ui.Context) {
 							themeOption = themeOptions[i]
 						}
 					}
-					if ui.Select(c, &themeOption, themeOptions).Width(150).Label(locales.In(a.language()).Theme()).Changed() {
+					if transitionedSelect(c, &themeOption, themeOptions).Width(150).Label(locales.In(a.language()).Theme()).Changed() {
 						for i, option := range themeOptions {
 							if themeOption == option {
 								a.settings.Theme = themeValues[i]
@@ -64,7 +64,7 @@ func (a *App) settingsView(c *ui.Context) {
 					}
 				}
 				a.setting(c, locales.In(a.language()).CustomColor(), "", func() {
-					if ui.Select(c, &accentOption, accentOptions).Width(150).Label(locales.In(a.language()).CustomColor()).Changed() {
+					if transitionedSelect(c, &accentOption, accentOptions).Width(150).Label(locales.In(a.language()).CustomColor()).Changed() {
 						for i, option := range accentOptions {
 							if accentOption == option {
 								accentValue = accentValues[i]
@@ -97,7 +97,7 @@ func (a *App) settingsView(c *ui.Context) {
 							languageOption = languageOptions[i]
 						}
 					}
-					if ui.Select(c, &languageOption, languageOptions).Width(150).Label(locales.In(a.language()).Language()).Changed() {
+					if transitionedSelect(c, &languageOption, languageOptions).Width(150).Label(locales.In(a.language()).Language()).Changed() {
 						for i, option := range languageOptions {
 							if languageOption == option {
 								a.setLanguage(languageValues[i])
@@ -113,26 +113,26 @@ func (a *App) settingsView(c *ui.Context) {
 			})
 			a.card(c, locales.In(a.language()).App(), func() {
 				a.setting(c, locales.In(a.language()).EnableTray(), "", func() {
-					if ui.Switch(c, &a.settings.TrayEnabled).Label(locales.In(a.language()).EnableTray()).Changed() {
+					if transitionedSwitch(c, &a.settings.TrayEnabled).Label(locales.In(a.language()).EnableTray()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
 				a.setting(c, locales.In(a.language()).MinimizeToTray(), "", func() {
-					if ui.Switch(c, &a.settings.MinimizeToTray).Label(locales.In(a.language()).MinimizeToTray()).Changed() {
+					if transitionedSwitch(c, &a.settings.MinimizeToTray).Label(locales.In(a.language()).MinimizeToTray()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
 				a.setting(c, locales.In(a.language()).KeepTrayInBackground(), "", func() {
-					if ui.Switch(c, &a.settings.CloseToTray).Label(locales.In(a.language()).KeepTrayInBackground()).Changed() {
+					if transitionedSwitch(c, &a.settings.CloseToTray).Label(locales.In(a.language()).KeepTrayInBackground()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
 				a.setting(c, locales.In(a.language()).OpenAtLogin(), "", func() {
 					enabled := a.settings.OpenAtLogin
-					if ui.Switch(c, &enabled).Disabled(a.busy["login"]).Label(locales.In(a.language()).OpenAtLogin()).Changed() {
+					if transitionedSwitch(c, &enabled).Disabled(a.busy["login"]).Label(locales.In(a.language()).OpenAtLogin()).Changed() {
 						next := enabled
 						a.do("login", func(context.Context) error { return mygo.App.SetOpenAtLogin(next) }, func() { a.settings.OpenAtLogin = next; a.saveSettings() })
 					}
@@ -146,11 +146,11 @@ func (a *App) settingsView(c *ui.Context) {
 							ui.Text(c, s.Name).FillWidth()
 							a.label(c, s.URL).FillWidth().Selectable()
 						})
-						ui.Button(c, locales.In(a.language()).Connect()).OnClick(func() { a.activate(s.ID); a.page = "overview" })
-						ui.Button(c, locales.In(a.language()).EditServer()).OnClick(func() { a.editServer(s.ID) })
+						transitionedButton(c, locales.In(a.language()).Connect()).OnClick(func() { a.activate(s.ID); a.page = "overview" })
+						transitionedButton(c, locales.In(a.language()).EditServer()).OnClick(func() { a.editServer(s.ID) })
 					})
 				}
-				ui.Button(c, locales.In(a.language()).NewServer()).OnClick(func() { a.editServer("") })
+				transitionedButton(c, locales.In(a.language()).NewServer()).OnClick(func() { a.editServer("") })
 			})
 			a.card(c, locales.In(a.language()).About(), func() {
 				ui.Text(c, "BoxPilot 0.1.0")
@@ -225,15 +225,15 @@ func (a *App) serverForm(c *ui.Context) {
 					ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(locales.In(a.language()).Secret())
 				})
 				a.field(c, locales.In(a.language()).StorageMode(), func() {
-					ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(locales.In(a.language()).StorageMode())
+					transitionedSelect(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(locales.In(a.language()).StorageMode())
 				})
 				a.label(c, locales.In(a.language()).SessionThisSessionKeychainSystemCredentialStoreFilePlaintext()).FillWidth()
 				if a.serverRemember == "file" {
-					ui.Checkbox(c, &a.serverFileConsent, locales.In(a.language()).IConsentToPlaintextStorageInAPrivateLocalFile()).FillWidth()
+					transitionedCheckbox(c, &a.serverFileConsent, locales.In(a.language()).IConsentToPlaintextStorageInAPrivateLocalFile()).FillWidth()
 				}
 				if insecureRemote(a.serverURL) {
 					ui.Text(c, locales.In(a.language()).WarningHTTPMayExposeYourSecretToNetworkObservers()).TextColor(a.palette.danger).FontSize(12).FillWidth()
-					ui.Checkbox(c, &a.serverHTTPConsent, locales.In(a.language()).IUnderstandAndAllowThisPlaintextConnection()).FillWidth()
+					transitionedCheckbox(c, &a.serverHTTPConsent, locales.In(a.language()).IUnderstandAndAllowThisPlaintextConnection()).FillWidth()
 				}
 			})
 		})
@@ -241,16 +241,16 @@ func (a *App) serverForm(c *ui.Context) {
 		ui.Column(c).FillWidth().Gap(10).Shrink(0).Children(func() {
 			ui.Row(c).FillWidth().Gap(10).Children(func() {
 				if a.serverID != "" {
-					ui.Button(c, locales.In(a.language()).Delete()).TextColor(a.palette.danger).OnClick(func() {
+					transitionedButton(c, locales.In(a.language()).Delete()).TextColor(a.palette.danger).OnClick(func() {
 						a.confirm(locales.In(a.language()).Delete(), a.serverName, func() { a.deleteServer() })
 					})
 				}
-				ui.Button(c, locales.In(a.language()).TestConnection()).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
+				transitionedButton(c, locales.In(a.language()).TestConnection()).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
 			})
 			ui.Row(c).FillWidth().Gap(10).Children(func() {
 				ui.Spacer(c)
-				ui.Button(c, locales.In(a.language()).Cancel()).OnClick(func() { a.serverDialog = false })
-				ui.PrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
+				transitionedButton(c, locales.In(a.language()).Cancel()).OnClick(func() { a.serverDialog = false })
+				transitionedPrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
 			})
 		})
 	})

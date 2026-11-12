@@ -17,14 +17,14 @@ import (
 
 func (a *App) coreView(c *ui.Context) {
 	a.pageTitle(c, locales.In(a.language()).Core(), func() {
-		ui.Button(c, locales.In(a.language()).Refresh()).Disabled(a.busy["local-files"]).OnClick(a.refreshLocal)
+		transitionedButton(c, locales.In(a.language()).Refresh()).Disabled(a.busy["local-files"]).OnClick(a.refreshLocal)
 	})
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(18).Children(func() {
 			if core.ElevatedCoreSupported() {
 				a.card(c, locales.In(a.language()).RunSingBoxAsAdministrator(), func() {
 					enabled := a.settings.ElevateCore
-					if ui.Switch(c, &enabled).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.coreState.Phase == "running" || a.coreState.Phase == "starting").Label(locales.In(a.language()).RunSingBoxAsAdministrator()).Changed() {
+					if transitionedSwitch(c, &enabled).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.coreState.Phase == "running" || a.coreState.Phase == "starting").Label(locales.In(a.language()).RunSingBoxAsAdministrator()).Changed() {
 						a.settings.ElevateCore = enabled
 						a.saveSettings()
 						a.replaceCoreController()
@@ -47,7 +47,7 @@ func (a *App) coreView(c *ui.Context) {
 							break
 						}
 					}
-					if ui.Select(c, &selected, values).FillWidth().Label(locales.In(a.language()).CoreType()).Changed() {
+					if transitionedSelect(c, &selected, values).FillWidth().Label(locales.In(a.language()).CoreType()).Changed() {
 						for i, value := range values {
 							if value == selected {
 								a.cpuCoreChoice = keys[i]
@@ -57,7 +57,7 @@ func (a *App) coreView(c *ui.Context) {
 							}
 						}
 					}
-					ui.PrimaryButton(c, locales.In(a.language()).ApplyToLocalSingBox()).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
+					transitionedPrimaryButton(c, locales.In(a.language()).ApplyToLocalSingBox()).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
 					a.label(c, locales.In(a.language()).OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction())
 				})
 			}
@@ -80,8 +80,8 @@ func (a *App) coreView(c *ui.Context) {
 					ui.Text(c, a.coreState.Error).TextColor(a.palette.danger).FontSize(12).Selectable()
 				}
 				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-					ui.PrimaryButton(c, locales.In(a.language()).Start()).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.busy["remote-profile-restart"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
-					ui.Button(c, locales.In(a.language()).Stop()).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
+					transitionedPrimaryButton(c, locales.In(a.language()).Start()).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.busy["remote-profile-restart"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
+					transitionedButton(c, locales.In(a.language()).Stop()).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
 				})
 				a.label(c, locales.In(a.language()).OnlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning())
 			})
@@ -99,7 +99,7 @@ func (a *App) coreDownloadProgress(c *ui.Context) {
 	}
 	ui.Progress(c, progress).FillWidth()
 	a.label(c, fmt.Sprintf("%d / %d bytes", a.downloadDone, a.downloadTotal))
-	ui.Button(c, locales.In(a.language()).CancelDownload()).OnClick(func() {
+	transitionedButton(c, locales.In(a.language()).CancelDownload()).OnClick(func() {
 		if cancel := a.jobs["install"]; cancel != nil {
 			cancel()
 		}
@@ -306,7 +306,7 @@ func (a *App) profileForm(c *ui.Context) {
 				}
 			})
 			autoUpdate := a.profileAutoUpdate
-			ui.Checkbox(c, &a.profileAutoUpdate, locales.In(a.language()).AutoUpdate())
+			transitionedCheckbox(c, &a.profileAutoUpdate, locales.In(a.language()).AutoUpdate())
 			if autoUpdate != a.profileAutoUpdate {
 				a.profileDirty = true
 			}
@@ -329,15 +329,15 @@ func (a *App) profileForm(c *ui.Context) {
 		}
 		ui.Row(c).FillWidth().Gap(10).Children(func() {
 			if a.profileType != "remote" {
-				ui.Button(c, locales.In(a.language()).CheckConfiguration()).Disabled(a.busy["check-profile"] || a.settings.CorePath == "").OnClick(a.checkProfile)
+				transitionedButton(c, locales.In(a.language()).CheckConfiguration()).Disabled(a.busy["check-profile"] || a.settings.CorePath == "").OnClick(a.checkProfile)
 			}
 			ui.Spacer(c)
-			ui.Button(c, locales.In(a.language()).Cancel()).OnClick(a.closeProfile)
+			transitionedButton(c, locales.In(a.language()).Cancel()).OnClick(a.closeProfile)
 			saveAction := a.saveProfile
 			if a.profileType == "remote" {
 				saveAction = a.saveRemoteProfile
 			}
-			ui.PrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-profile"]).OnClick(saveAction)
+			transitionedPrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-profile"]).OnClick(saveAction)
 		})
 	})
 	if dialog.Dismissed() {
