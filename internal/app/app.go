@@ -664,7 +664,17 @@ func (a *App) startCore(replace bool) {
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
-		a.fail(errors.New(locales.In(a.language()).CoreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst()))
+		a.confirmWithButton(
+			locales.In(a.language()).CoreIsNotInstalled(),
+			locales.In(a.language()).CoreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst()+"\n"+
+				locales.In(a.language()).DownloadFromOfficialReleasesVerifySHA256AndInstallTheCoreWillNotStartOrRestartAutomatically(),
+			locales.In(a.language()).CoreManagement(),
+			func() {
+				a.page = "core"
+				a.coreManagerOpen = true
+				a.checkReleases()
+			},
+		)
 		return
 	}
 	cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()

@@ -26,7 +26,7 @@ func TestCoreReadyCannotReplaceNewerRemoteSelection(t *testing.T) {
 		t.Fatal("stale startup generation was accepted")
 	}
 }
-func TestStartingWithoutInstalledCoreExplainsWhatToDo(t *testing.T) {
+func TestStartingWithoutInstalledCoreOpensInstallationGuide(t *testing.T) {
 	a := fixture(t)
 	profile, err := core.SaveProfile(a.root, "", "test", core.DefaultConfig())
 	if err != nil {
@@ -37,8 +37,19 @@ func TestStartingWithoutInstalledCoreExplainsWhatToDo(t *testing.T) {
 	a.settings.CorePath = ""
 	a.manager = core.NewManager(a.root, nil)
 	a.startCore(false)
-	if !a.errorOpen || !strings.Contains(a.errorText, locales.In(a.language()).CoreIsNotInstalled()) {
-		t.Fatalf("missing clear not-installed error: open=%t text=%q", a.errorOpen, a.errorText)
+	if !a.confirmOpen {
+		t.Fatal("starting without a core did not show an installation prompt")
+	}
+	if !strings.Contains(a.confirmMessage, locales.In(a.language()).CoreIsNotInstalled()) ||
+		a.confirmButtonText != locales.In(a.language()).CoreManagement() {
+		t.Fatalf("installation prompt lacks guidance or navigation action: title=%q message=%q button=%q", a.confirmTitle, a.confirmMessage, a.confirmButtonText)
+	}
+	if a.confirmAction == nil {
+		t.Fatal("installation prompt has no action")
+	}
+	a.confirmAction()
+	if a.page != "core" || !a.coreManagerOpen {
+		t.Fatalf("core installation controls not opened: page=%q open=%t", a.page, a.coreManagerOpen)
 	}
 }
 
