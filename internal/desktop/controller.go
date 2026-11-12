@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/xmdhs/boxpilot/locales"
 )
 
 // Callbacks execute synchronously on the UI/main thread. Quit should initiate
@@ -309,29 +309,23 @@ func (c *Controller) RefreshMenu() {
 	if c.destroyed {
 		return
 	}
-	zh := strings.HasPrefix(strings.ToLower(c.language), "zh")
-	text := func(en, zhText string) string {
-		if zh {
-			return zhText
-		}
-		return en
-	}
+	text := locales.In(c.language)
 	running := c.cb.CoreRunning != nil && c.cb.CoreRunning()
 	local := c.cb.LocalActive != nil && c.cb.LocalActive()
-	label := text("Start local core", "启动本机核心")
+	label := text.StartLocalCore()
 	if running {
-		label = text("Stop local core", "停止本机核心")
+		label = text.StopLocalCore()
 	}
-	activeName := text("This Computer", "本机")
+	activeName := text.ThisComputer()
 	if c.cb.ActiveName != nil && c.cb.ActiveName() != "" {
 		activeName = c.cb.ActiveName()
 	}
-	status := text("Unavailable", "不可用")
+	status := text.Unavailable()
 	if c.cb.Status != nil && c.cb.Status() != "" {
 		status = c.cb.Status()
 	}
 	c.statusItem = &mygo.MenuItem{Label: activeName, Subtitle: status, Disabled: true}
-	c.showItem = &mygo.MenuItem{Label: text("Open BoxPilot", "打开 BoxPilot"), Click: func(*mygo.MenuItem, *mygo.Window) { c.Show() }}
+	c.showItem = &mygo.MenuItem{Label: text.OpenBoxPilot(), Click: func(*mygo.MenuItem, *mygo.Window) { c.Show() }}
 	c.toggleItem = &mygo.MenuItem{Label: label, Disabled: !local || c.cb.ToggleCore == nil || c.quitting, Click: func(*mygo.MenuItem, *mygo.Window) {
 		if c.destroyed || c.quitting || c.cb.ToggleCore == nil || c.cb.LocalActive == nil || !c.cb.LocalActive() {
 			return
@@ -354,9 +348,9 @@ func (c *Controller) RefreshMenu() {
 		}
 	}
 	if len(profiles) == 0 {
-		profiles = append(profiles, &mygo.MenuItem{Label: text("Empty profiles", "暂无配置"), Disabled: true})
+		profiles = append(profiles, &mygo.MenuItem{Label: text.EmptyProfiles(), Disabled: true})
 	}
-	c.profilesItem = &mygo.MenuItem{Label: text("Profiles", "配置"), Submenu: profiles}
+	c.profilesItem = &mygo.MenuItem{Label: text.Profiles(), Submenu: profiles}
 	items := []*mygo.MenuItem{c.statusItem, mygo.Separator(), c.showItem, c.toggleItem, c.profilesItem}
 	groups := []MenuGroup(nil)
 	if c.cb.Groups != nil {
@@ -367,7 +361,7 @@ func (c *Controller) RefreshMenu() {
 		for _, group := range groups {
 			group := group
 			children := make([]*mygo.MenuItem, 0, len(group.Items)+2)
-			children = append(children, &mygo.MenuItem{Label: text("Test group", "测试此组"), Disabled: c.quitting || c.cb.URLTest == nil,
+			children = append(children, &mygo.MenuItem{Label: text.TestGroup(), Disabled: c.quitting || c.cb.URLTest == nil,
 				Click: func(*mygo.MenuItem, *mygo.Window) {
 					if !c.destroyed && !c.quitting && c.cb.URLTest != nil {
 						c.cb.URLTest(group.Tag)
@@ -390,12 +384,12 @@ func (c *Controller) RefreshMenu() {
 			}
 			groupItems = append(groupItems, &mygo.MenuItem{Label: group.Tag, Submenu: children})
 		}
-		c.groupsItem = &mygo.MenuItem{Label: text("Groups", "分组"), Submenu: groupItems}
+		c.groupsItem = &mygo.MenuItem{Label: text.Groups(), Submenu: groupItems}
 		items = append(items, c.groupsItem)
 	} else {
 		c.groupsItem = nil
 	}
-	c.quitItem = &mygo.MenuItem{Label: text("Quit", "退出"), Disabled: c.quitting, Click: func(*mygo.MenuItem, *mygo.Window) { c.requestQuit() }}
+	c.quitItem = &mygo.MenuItem{Label: text.Quit(), Disabled: c.quitting, Click: func(*mygo.MenuItem, *mygo.Window) { c.requestQuit() }}
 	items = append(items, mygo.Separator(), c.quitItem)
 	c.menu = mygo.NewMenu(items)
 	if c.tray != nil {

@@ -4,32 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"net"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/xmdhs/boxpilot/internal/api"
 	"github.com/xmdhs/boxpilot/internal/storage"
 )
 
 func (a *App) settingsView(c *ui.Context) {
-	a.pageTitle(c, "设置", "Settings", nil)
+	a.pageTitle(c, locales.In(a.language()).Settings(), nil)
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(18).Children(func() {
-			a.card(c, a.t("外观", "Appearance"), func() {
-				a.setting(c, a.t("主题", "Theme"), "", func() {
+			a.card(c, locales.In(a.language()).Appearance(), func() {
+				a.setting(c, locales.In(a.language()).Theme(), "", func() {
 					themeValues := []string{"auto", "light", "dark"}
-					themeOptions := []string{a.t("跟随系统", "System"), a.t("浅色", "Light"), a.t("深色", "Dark")}
+					themeOptions := []string{locales.In(a.language()).System(), locales.In(a.language()).Light(), locales.In(a.language()).Dark()}
 					themeOption := themeOptions[0]
 					for i, value := range themeValues {
 						if a.settings.Theme == value {
 							themeOption = themeOptions[i]
 						}
 					}
-					if ui.Select(c, &themeOption, themeOptions).Width(150).Label(a.t("主题", "Theme")).Changed() {
+					if ui.Select(c, &themeOption, themeOptions).Width(150).Label(locales.In(a.language()).Theme()).Changed() {
 						for i, option := range themeOptions {
 							if themeOption == option {
 								a.settings.Theme = themeValues[i]
@@ -44,9 +46,9 @@ func (a *App) settingsView(c *ui.Context) {
 				})
 				accentValues := []string{"default", "blue", "purple", "pink", "red", "orange", "yellow", "green", "graphite", "custom"}
 				accentOptions := []string{
-					a.t("默认", "Default"), a.t("蓝色", "Blue"), a.t("紫色", "Purple"), a.t("粉色", "Pink"),
-					a.t("红色", "Red"), a.t("橙色", "Orange"), a.t("黄色", "Yellow"), a.t("绿色", "Green"),
-					a.t("石墨色", "Graphite"), a.t("自定义颜色", "Custom color"),
+					locales.In(a.language()).Default(), locales.In(a.language()).Blue(), locales.In(a.language()).Purple(), locales.In(a.language()).Pink(),
+					locales.In(a.language()).Red(), locales.In(a.language()).Orange(), locales.In(a.language()).Yellow(), locales.In(a.language()).Green(),
+					locales.In(a.language()).Graphite(), locales.In(a.language()).CustomColor(),
 				}
 				accentValue := a.settings.Accent
 				if strings.HasPrefix(accentValue, "#") {
@@ -61,8 +63,8 @@ func (a *App) settingsView(c *ui.Context) {
 						accentOption = accentOptions[i]
 					}
 				}
-				a.setting(c, a.t("自定义颜色", "Custom color"), "", func() {
-					if ui.Select(c, &accentOption, accentOptions).Width(150).Label(a.t("自定义颜色", "Custom color")).Changed() {
+				a.setting(c, locales.In(a.language()).CustomColor(), "", func() {
+					if ui.Select(c, &accentOption, accentOptions).Width(150).Label(locales.In(a.language()).CustomColor()).Changed() {
 						for i, option := range accentOptions {
 							if accentOption == option {
 								accentValue = accentValues[i]
@@ -80,22 +82,25 @@ func (a *App) settingsView(c *ui.Context) {
 				})
 				if strings.HasPrefix(a.settings.Accent, "#") {
 					color := ui.Hex(a.settings.Accent)
-					if ui.ColorPicker(c, &color).Label(a.t("自定义颜色", "Custom color")).Changed() {
+					if ui.ColorPicker(c, &color).Label(locales.In(a.language()).CustomColor()).Changed() {
 						a.settings.Accent = fmt.Sprintf("#%02x%02x%02x", color.R, color.G, color.B)
 						a.saveSettings()
 					}
 				}
-				a.setting(c, a.t("语言", "Language"), "", func() {
-					languageValues := []string{"zh-Hans", "en"}
-					languageOptions := []string{"简体中文", "English"}
-					languageOption := languageOptions[0]
-					if a.settings.Language == "en" {
-						languageOption = languageOptions[1]
+				a.setting(c, locales.In(a.language()).Language(), "", func() {
+					languageValues := mygo.App.Languages()
+					languageOptions := make([]string, len(languageValues))
+					languageOption := ""
+					for i, tag := range languageValues {
+						languageOptions[i] = i18n.Autonym(tag)
+						if tag == a.language() {
+							languageOption = languageOptions[i]
+						}
 					}
-					if ui.Select(c, &languageOption, languageOptions).Width(150).Label(a.t("语言", "Language")).Changed() {
+					if ui.Select(c, &languageOption, languageOptions).Width(150).Label(locales.In(a.language()).Language()).Changed() {
 						for i, option := range languageOptions {
 							if languageOption == option {
-								a.settings.Language = languageValues[i]
+								a.setLanguage(languageValues[i])
 								a.saveSettings()
 								if a.settings.ActiveID != "" {
 									a.activate(a.settings.ActiveID)
@@ -106,34 +111,34 @@ func (a *App) settingsView(c *ui.Context) {
 					}
 				})
 			})
-			a.card(c, a.t("应用", "App"), func() {
-				a.setting(c, a.t("启用托盘", "Enable tray"), "", func() {
-					if ui.Switch(c, &a.settings.TrayEnabled).Label(a.t("启用托盘", "Enable tray")).Changed() {
+			a.card(c, locales.In(a.language()).App(), func() {
+				a.setting(c, locales.In(a.language()).EnableTray(), "", func() {
+					if ui.Switch(c, &a.settings.TrayEnabled).Label(locales.In(a.language()).EnableTray()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
-				a.setting(c, a.t("最小化到托盘", "Minimize to tray"), "", func() {
-					if ui.Switch(c, &a.settings.MinimizeToTray).Label(a.t("最小化到托盘", "Minimize to tray")).Changed() {
+				a.setting(c, locales.In(a.language()).MinimizeToTray(), "", func() {
+					if ui.Switch(c, &a.settings.MinimizeToTray).Label(locales.In(a.language()).MinimizeToTray()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
-				a.setting(c, a.t("将托盘保留在后台", "Keep Tray in Background"), "", func() {
-					if ui.Switch(c, &a.settings.CloseToTray).Label(a.t("将托盘保留在后台", "Keep Tray in Background")).Changed() {
+				a.setting(c, locales.In(a.language()).KeepTrayInBackground(), "", func() {
+					if ui.Switch(c, &a.settings.CloseToTray).Label(locales.In(a.language()).KeepTrayInBackground()).Changed() {
 						a.configureTray()
 						a.saveSettings()
 					}
 				})
-				a.setting(c, a.t("开机启动", "Open at login"), "", func() {
+				a.setting(c, locales.In(a.language()).OpenAtLogin(), "", func() {
 					enabled := a.settings.OpenAtLogin
-					if ui.Switch(c, &enabled).Disabled(a.busy["login"]).Label(a.t("开机启动", "Open at login")).Changed() {
+					if ui.Switch(c, &enabled).Disabled(a.busy["login"]).Label(locales.In(a.language()).OpenAtLogin()).Changed() {
 						next := enabled
 						a.do("login", func(context.Context) error { return mygo.App.SetOpenAtLogin(next) }, func() { a.settings.OpenAtLogin = next; a.saveSettings() })
 					}
 				})
 			})
-			a.card(c, a.t("服务器", "Servers"), func() {
+			a.card(c, locales.In(a.language()).Servers(), func() {
 				for _, s := range a.settings.Servers {
 					s := s
 					ui.Row(c.Key(s.ID)).FillWidth().Gap(10).AlignItems(ui.Center).Wrap().Children(func() {
@@ -141,13 +146,13 @@ func (a *App) settingsView(c *ui.Context) {
 							ui.Text(c, s.Name).FillWidth()
 							a.label(c, s.URL).FillWidth().Selectable()
 						})
-						ui.Button(c, a.t("连接", "Connect")).OnClick(func() { a.activate(s.ID); a.page = "overview" })
-						ui.Button(c, a.t("编辑服务器", "Edit Server")).OnClick(func() { a.editServer(s.ID) })
+						ui.Button(c, locales.In(a.language()).Connect()).OnClick(func() { a.activate(s.ID); a.page = "overview" })
+						ui.Button(c, locales.In(a.language()).EditServer()).OnClick(func() { a.editServer(s.ID) })
 					})
 				}
-				ui.Button(c, a.t("新建服务器", "New Server")).OnClick(func() { a.editServer("") })
+				ui.Button(c, locales.In(a.language()).NewServer()).OnClick(func() { a.editServer("") })
 			})
-			a.card(c, a.t("关于", "About"), func() {
+			a.card(c, locales.In(a.language()).About(), func() {
 				ui.Text(c, "BoxPilot 0.1.0")
 			})
 		})
@@ -202,31 +207,33 @@ func (a *App) serverForm(c *ui.Context) {
 		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).MaxHeight(620).MaxHeightPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
-		serverTitle := a.t("新建服务器", "New Server")
+		serverTitle := locales.In(a.language()).NewServer()
 		if a.serverID != "" {
-			serverTitle = a.t("编辑服务器", "Edit Server")
+			serverTitle = locales.In(a.language()).EditServer()
 		}
 		ui.Text(c, serverTitle).FontSize(20).Bold().FillWidth().Shrink(0)
 		// 标题和操作区不参与收缩，长文案只占用中间的滚动区域。
-		ui.Scroll(c.Key("server-form-fields")).MaxHeight(min(400, height-200)).MinHeight(0).FillWidth().Label(a.t("服务器详情", "Server details")).Children(func() {
+		ui.Scroll(c.Key("server-form-fields")).MaxHeight(min(400, height-200)).MinHeight(0).FillWidth().Label(locales.In(a.language()).ServerDetails()).Children(func() {
 			ui.Column(c).FillWidth().Gap(14).Shrink(0).Children(func() {
-				a.field(c, a.t("名称", "Name"), func() {
-					ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(a.t("名称", "Name"))
+				a.field(c, locales.In(a.language()).Name(), func() {
+					ui.TextInput(c.Key("server-name"), &a.serverName).FillWidth().Label(locales.In(a.language()).Name())
 				})
-				a.field(c, a.t("URL", "URL"), func() { ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label(a.t("URL", "URL")) })
-				a.field(c, a.t("密钥", "Secret"), func() {
-					ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(a.t("密钥", "Secret"))
+				a.field(c, locales.In(a.language()).Url(), func() {
+					ui.TextInput(c.Key("server-url"), &a.serverURL).FillWidth().Label(locales.In(a.language()).Url())
 				})
-				a.field(c, a.t("保存方式", "Storage mode"), func() {
-					ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(a.t("保存方式", "Storage mode"))
+				a.field(c, locales.In(a.language()).Secret(), func() {
+					ui.TextInput(c.Key("server-secret"), &a.serverSecret).Password().Disabled(a.serverLoading).FillWidth().Label(locales.In(a.language()).Secret())
 				})
-				a.label(c, a.t("session：仅本次；keychain：系统凭据库；file：明文文件。", "session: this session; keychain: system credential store; file: plaintext.")).FillWidth()
+				a.field(c, locales.In(a.language()).StorageMode(), func() {
+					ui.Select(c, &a.serverRemember, []string{"session", "keychain", "file"}).FillWidth().Label(locales.In(a.language()).StorageMode())
+				})
+				a.label(c, locales.In(a.language()).SessionThisSessionKeychainSystemCredentialStoreFilePlaintext()).FillWidth()
 				if a.serverRemember == "file" {
-					ui.Checkbox(c, &a.serverFileConsent, a.t("我同意将密钥明文保存到本机受限权限文件", "I consent to plaintext storage in a private local file")).FillWidth()
+					ui.Checkbox(c, &a.serverFileConsent, locales.In(a.language()).IConsentToPlaintextStorageInAPrivateLocalFile()).FillWidth()
 				}
 				if insecureRemote(a.serverURL) {
-					ui.Text(c, a.t("警告：此地址使用明文 HTTP，密钥可能被网络窃听。", "Warning: HTTP may expose your secret to network observers.")).TextColor(a.palette.danger).FontSize(12).FillWidth()
-					ui.Checkbox(c, &a.serverHTTPConsent, a.t("我了解并允许此明文连接", "I understand and allow this plaintext connection")).FillWidth()
+					ui.Text(c, locales.In(a.language()).WarningHTTPMayExposeYourSecretToNetworkObservers()).TextColor(a.palette.danger).FontSize(12).FillWidth()
+					ui.Checkbox(c, &a.serverHTTPConsent, locales.In(a.language()).IUnderstandAndAllowThisPlaintextConnection()).FillWidth()
 				}
 			})
 		})
@@ -234,16 +241,16 @@ func (a *App) serverForm(c *ui.Context) {
 		ui.Column(c).FillWidth().Gap(10).Shrink(0).Children(func() {
 			ui.Row(c).FillWidth().Gap(10).Children(func() {
 				if a.serverID != "" {
-					ui.Button(c, a.t("删除", "Delete")).TextColor(a.palette.danger).OnClick(func() {
-						a.confirm(a.t("删除", "Delete"), a.serverName, func() { a.deleteServer() })
+					ui.Button(c, locales.In(a.language()).Delete()).TextColor(a.palette.danger).OnClick(func() {
+						a.confirm(locales.In(a.language()).Delete(), a.serverName, func() { a.deleteServer() })
 					})
 				}
-				ui.Button(c, a.t("测试连接", "Test connection")).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
+				ui.Button(c, locales.In(a.language()).TestConnection()).Disabled(a.busy["probe"] || insecureRemote(a.serverURL) && !a.serverHTTPConsent).OnClick(a.probeServer)
 			})
 			ui.Row(c).FillWidth().Gap(10).Children(func() {
 				ui.Spacer(c)
-				ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.serverDialog = false })
-				ui.PrimaryButton(c, a.t("保存", "Save")).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
+				ui.Button(c, locales.In(a.language()).Cancel()).OnClick(func() { a.serverDialog = false })
+				ui.PrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-server"] || a.serverLoading || a.storageBlocked).OnClick(a.saveServer)
 			})
 		})
 	})
@@ -270,10 +277,10 @@ func (a *App) formServer() (api.Server, error) {
 	}
 	u, err := url.Parse(address)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
-		return api.Server{}, errors.New(a.t("请输入有效的 http(s) API 地址，不要包含用户名、查询参数或片段", "Enter a valid http(s) API URL without user info, query, or fragment"))
+		return api.Server{}, errors.New(locales.In(a.language()).EnterAValidHttpSAPIURLWithoutUserInfoQueryOrFragment())
 	}
 	if insecureRemote(address) && !a.serverHTTPConsent {
-		return api.Server{}, errors.New(a.t("请先确认明文连接风险", "Confirm the plaintext connection warning first"))
+		return api.Server{}, errors.New(locales.In(a.language()).ConfirmThePlaintextConnectionWarningFirst())
 	}
 	name := tidy(a.serverName)
 	if name == "" {
@@ -310,7 +317,7 @@ func (a *App) saveServer() {
 	}
 	mode := a.serverRemember
 	if mode == "file" && !a.serverFileConsent {
-		a.fail(errors.New(a.t("明文密钥存储需要明确同意", "Plaintext credential storage requires consent")))
+		a.fail(errors.New(locales.In(a.language()).PlaintextCredentialStorageRequiresConsent()))
 		return
 	}
 	if server.ID == "" {
@@ -347,7 +354,7 @@ func (a *App) saveServer() {
 		a.queueSettingsTransaction(a.settings, func() error {
 			if oldMode != "" && oldMode != mode {
 				if err := storage.DeleteSecret(a.root, server.ID, oldMode); err != nil {
-					return fmt.Errorf("新凭据和设置已保存，但清理旧凭据失败：%w", err)
+					return localizedCauseError{message: locales.In(a.language()).CredentialsSavedCleanupFailure(err.Error()), cause: err}
 				}
 			}
 			return nil

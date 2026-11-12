@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"net/url"
 	"strconv"
 	"strings"
@@ -28,7 +29,9 @@ func (a *App) OpenURL(raw string) {
 func (a *App) handleOpenURL(raw string) {
 	name, remoteURL, err := parseRemoteProfileImportLink(raw)
 	if err != nil {
-		if !errors.Is(err, errUnsupportedOpenURL) {
+		if errors.Is(err, errMissingRemoteProfileURL) {
+			a.fail(errors.New(locales.In(a.language()).RemoteProfileImportLinkMissingURL()))
+		} else if !errors.Is(err, errUnsupportedOpenURL) {
 			a.fail(err)
 		}
 		return
@@ -41,13 +44,14 @@ func (a *App) handleOpenURL(raw string) {
 	if name == "" {
 		name = remote.Host
 	}
-	message := fmt.Sprintf(a.t("您确定要导入 %s 吗？将会连接到 %s 下载配置。", "Are you sure to import %s? You will connect to %s to download the configuration."), name, remote.Host)
-	a.confirm(a.t("导入远程配置", "Import Remote Profile"), message, func() {
+	message := locales.In(a.language()).RemoteProfileImportConfirmation(name, remote.Host)
+	a.confirm(locales.In(a.language()).ImportRemoteProfile(), message, func() {
 		a.newRemoteProfile(name, remoteURL)
 	})
 }
 
 var errUnsupportedOpenURL = errors.New("unsupported URL")
+var errMissingRemoteProfileURL = errors.New("remote profile import link has no URL")
 
 func parseRemoteProfileImportLink(raw string) (name, remoteURL string, err error) {
 	link, err := url.Parse(raw)
@@ -59,7 +63,7 @@ func parseRemoteProfileImportLink(raw string) (name, remoteURL string, err error
 	}
 	remoteURL = link.Query().Get("url")
 	if strings.TrimSpace(remoteURL) == "" {
-		return "", "", errors.New("remote profile import link has no URL")
+		return "", "", errMissingRemoteProfileURL
 	}
 	name = strings.TrimSpace(link.Fragment)
 	return name, remoteURL, nil
@@ -94,7 +98,7 @@ func (a *App) saveRemoteProfile() {
 		interval = defaultRemoteUpdateMinutes
 	}
 	if interval > 10080 {
-		a.fail(errors.New("update interval must not exceed 10080 minutes"))
+		a.fail(errors.New(locales.In(a.language()).RemoteProfileUpdateIntervalTooLong()))
 		return
 	}
 	metadata := core.Profile{
@@ -111,7 +115,7 @@ func (a *App) saveRemoteProfile() {
 			}
 		}
 		if existing == nil {
-			a.fail(errors.New("remote profile no longer exists"))
+			a.fail(errors.New(locales.In(a.language()).RemoteProfileNoLongerExists()))
 			return
 		}
 	}
@@ -186,14 +190,14 @@ func (a *App) updateRemoteProfile(profile core.Profile) {
 		jobKey := key
 		if restart {
 			if a.busy["remote-profile-restart"] || a.busy["core-start"] || a.busy["core-stop"] {
-				a.fail(errors.New(a.t("核心正在切换状态，本次更新尚未应用。", "The core is changing state; this update has not been applied.")))
+				a.fail(errors.New(locales.In(a.language()).TheCoreIsChangingStateThisUpdateHasNotBeenApplied()))
 				return
 			}
 			jobKey = "remote-profile-restart"
 		}
 		cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()
 		if restart && !validCPUChoice {
-			a.fail(errors.New(a.t("核心类型已不可用，请重新选择。", "The selected CPU core type is no longer available.")))
+			a.fail(errors.New(locales.In(a.language()).TheSelectedCPUCoreTypeIsNoLongerAvailable()))
 			return
 		}
 		var updated core.Profile

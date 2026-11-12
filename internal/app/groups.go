@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/xmdhs/boxpilot/internal/api"
@@ -70,10 +71,10 @@ func (a *App) toggleGroup(group *daemon.Group) {
 }
 
 func (a *App) groups(c *ui.Context) {
-	a.pageTitle(c, "组", "Groups", nil)
+	a.pageTitle(c, locales.In(a.language()).Groups(), nil)
 	a.unsupported(c, "groups")
 	if len(a.snapshot.Groups) == 0 {
-		a.empty(c, "无分组", "No groups")
+		a.empty(c, locales.In(a.language()).NoGroups())
 		return
 	}
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
@@ -85,14 +86,14 @@ func (a *App) groups(c *ui.Context) {
 						ui.Text(c, g.GetTag()).Bold()
 						a.label(c, g.GetType()).Grow(1)
 						a.pill(c, fmt.Sprint(len(g.GetItems())), a.palette.muted)
-						a.iconButtonDisabled(c, "test-"+g.GetTag(), a.t("URL 测试", "URL test"), "speed", a.busy["test-"+g.GetTag()], func() {
+						a.iconButtonDisabled(c, "test-"+g.GetTag(), locales.In(a.language()).UrlTest(), "speed", a.busy["test-"+g.GetTag()], func() {
 							a.rpc("test-"+g.GetTag(), func(ctx context.Context, client *api.Client) error { return client.URLTest(ctx, g.GetTag()) })
 						})
 						expanded := a.groupExpanded(g)
-						expandLabel := a.t("展开", "Expand")
+						expandLabel := locales.In(a.language()).Expand()
 						expandIcon := "expand_more"
 						if expanded {
-							expandLabel = a.t("收起", "Collapse")
+							expandLabel = locales.In(a.language()).Collapse()
 							expandIcon = "expand_less"
 						}
 						a.iconButtonDisabled(c, "expand-"+g.GetTag(), expandLabel, expandIcon, a.busy["expand-"+g.GetTag()], func() {
@@ -128,7 +129,7 @@ func (a *App) groups(c *ui.Context) {
 									}
 								})
 								b.ContextMenu(func(m *ui.Menu) {
-									if m.Item(a.t("URL 测试", "URL test")).Chosen() {
+									if m.Item(locales.In(a.language()).UrlTest()).Chosen() {
 										a.rpc("node-test-"+item.GetTag(), func(ctx context.Context, client *api.Client) error { return client.URLTest(ctx, item.GetTag()) })
 									}
 								})

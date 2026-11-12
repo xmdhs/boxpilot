@@ -42,6 +42,7 @@ func main() {
 	}
 	settings, loadErr := storage.Load(root)
 	a := app.New(root, settings)
+	mygo.App.SetLocale(a.Language())
 	mygo.App.WhenReady(func() { a.Open(loadErr) })
 	mygo.App.OnOpenURL(a.OpenURL)
 	mygo.App.OnSecondInstance(func([]string, string) { a.Show() })

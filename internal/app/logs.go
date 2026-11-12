@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"github.com/xmdhs/boxpilot/locales"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -30,10 +31,10 @@ func (a *App) visibleLogs() []model.LogEntry {
 	return result
 }
 func (a *App) logs(c *ui.Context) {
-	a.pageTitle(c, "日志", "Logs", func() {
-		pause := a.t("暂停更新", "Pause updates")
+	a.pageTitle(c, locales.In(a.language()).Logs(), func() {
+		pause := locales.In(a.language()).PauseUpdates()
 		if a.logsPaused {
-			pause = a.t("恢复更新", "Resume updates")
+			pause = locales.In(a.language()).ResumeUpdates()
 		}
 		ui.Button(c, pause).OnClick(func() {
 			a.logsPaused = !a.logsPaused
@@ -44,7 +45,7 @@ func (a *App) logs(c *ui.Context) {
 				a.logList.ScrollToEnd()
 			}
 		})
-		if ui.Button(c, a.t("复制日志", "Copy logs")).Clicked() {
+		if ui.Button(c, locales.In(a.language()).CopyLogs()).Clicked() {
 			var b strings.Builder
 			for _, e := range a.visibleLogs() {
 				b.WriteString(a.redactSensitive(plainLog(e.Message)))
@@ -57,23 +58,23 @@ func (a *App) logs(c *ui.Context) {
 				}
 			})
 		}
-		ui.Button(c, a.t("清除日志", "Clear Logs")).Disabled(a.client == nil).OnClick(func() {
-			a.confirm(a.t("清除日志", "Clear Logs"), "", func() {
+		ui.Button(c, locales.In(a.language()).ClearLogs()).Disabled(a.client == nil).OnClick(func() {
+			a.confirm(locales.In(a.language()).ClearLogs(), "", func() {
 				a.rpc("clear-logs", func(ctx context.Context, client *api.Client) error { return client.ClearLogs(ctx) })
 			})
 		})
 	})
 	if a.logsPaused {
-		a.label(c, a.t("日志更新已暂停，当前显示冻结快照；恢复后显示最新日志。", "Updates are paused. This is a frozen snapshot; resume to see the latest logs."))
+		a.label(c, locales.In(a.language()).UpdatesArePausedThisIsAFrozenSnapshotResumeToSeeTheLatestLogs())
 	}
 	ui.Row(c).FillWidth().Gap(12).Children(func() {
-		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).MinWidth(0).Label(a.t("搜索", "Search"))
-		all := a.t("全部", "All")
+		ui.SearchField(c.Key("log-query"), &a.logsQuery).Grow(1).MinWidth(0).Label(locales.In(a.language()).Search())
+		all := locales.In(a.language()).All()
 		level := a.logLevel
 		if level == "all" {
 			level = all
 		}
-		if ui.Select(c.Key("log-level"), &level, []string{all, "PANIC", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}).Width(110).Shrink(0).Label(a.t("日志级别", "Log level")).Changed() {
+		if ui.Select(c.Key("log-level"), &level, []string{all, "PANIC", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"}).Width(110).Shrink(0).Label(locales.In(a.language()).LogLevel()).Changed() {
 			a.logLevel = level
 			if level == all {
 				a.logLevel = "all"
@@ -98,7 +99,7 @@ func (a *App) logs(c *ui.Context) {
 		})
 	}).Grow(1).Background(a.palette.card).Border(1, a.palette.border).Radius(12)
 	if len(entries) == 0 {
-		a.label(c, a.t("无日志", "Empty logs"))
+		a.label(c, locales.In(a.language()).EmptyLogs())
 	}
 }
 

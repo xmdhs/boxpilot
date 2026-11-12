@@ -6,6 +6,7 @@
   "resourcesExclude": ["icon.png"],
   "out": "build",
   "urlSchemes": ["sing-box"],
+  "i18n": {"dir": "locales", "source": "en"},
   "linux": {
     "webview": false,
     "command": "boxpilot",

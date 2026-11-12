@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,14 @@ import (
 )
 
 const localID = "managed-local"
+
+type localizedCauseError struct {
+	message string
+	cause   error
+}
+
+func (e localizedCauseError) Error() string { return e.message }
+func (e localizedCauseError) Unwrap() error { return e.cause }
 
 // App 的可见状态仅在主线程读写，worker 只传递独立结果。
 type App struct {
@@ -173,7 +182,7 @@ func (a *App) Open(loadErr error) {
 	a.replaceCoreController()
 	if loadErr != nil {
 		a.storageBlocked = true
-		a.fail(fmt.Errorf("读取设置失败；为保护原文件，已暂停保存：%w", loadErr))
+		a.fail(localizedCauseError{message: locales.In(a.language()).SettingsLoadFailure(loadErr.Error()), cause: loadErr})
 	}
 	a.refreshLocal()
 	a.detectCPUCoreGroups()
@@ -295,7 +304,7 @@ func (a *App) rpc(key string, fn func(context.Context, *api.Client) error) {
 func (a *App) rpcWithCallbacks(key string, fn func(context.Context, *api.Client) error, done func(), failed func(error)) {
 	c := a.client
 	if c == nil {
-		err := errors.New(a.t("连接", "Connect"))
+		err := errors.New(locales.In(a.language()).Connect())
 		if failed != nil {
 			failed(err)
 		} else {
@@ -470,7 +479,7 @@ func (a *App) redactSensitive(text string) string {
 }
 
 func (a *App) confirm(title, message string, action func()) {
-	a.confirmWithButton(title, message, a.t("好", "Ok"), action)
+	a.confirmWithButton(title, message, locales.In(a.language()).Ok(), action)
 }
 func (a *App) confirmWithButton(title, message, button string, action func()) {
 	a.confirmTitle = title
@@ -483,7 +492,7 @@ func (a *App) confirmButtonLabel() string {
 	if a.confirmOpen && a.confirmButtonText != "" {
 		return a.confirmButtonText
 	}
-	return a.t("好", "Ok")
+	return locales.In(a.language()).Ok()
 }
 
 // WindowAllClosed keeps the MyGo loop alive only while the tray can restore a
@@ -630,11 +639,11 @@ func (a *App) toggleCore() {
 }
 func (a *App) startCore(replace bool) {
 	if a.busy["remote-profile-restart"] {
-		a.fail(errors.New(a.t("正在应用远程配置更新，请稍后再启动。", "Applying a remote profile update; try starting again shortly.")))
+		a.fail(errors.New(locales.In(a.language()).ApplyingARemoteProfileUpdateTryStartingAgainShortly()))
 		return
 	}
 	if a.busy["cpu-core-detection"] {
-		a.fail(errors.New(a.t("正在检测 CPU 核心类型，请稍后再启动。", "Detecting CPU core types; try starting the core again in a moment.")))
+		a.fail(errors.New(locales.In(a.language()).DetectingCPUCoreTypesTryStartingTheCoreAgainInAMoment()))
 		return
 	}
 	if a.manager == nil {
@@ -642,19 +651,19 @@ func (a *App) startCore(replace bool) {
 	}
 	p, ok := a.selectedProfile()
 	if !ok {
-		a.fail(errors.New(a.t("无配置", "Empty profiles")))
+		a.fail(errors.New(locales.In(a.language()).EmptyProfiles()))
 		a.page = "core"
 		return
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
-		a.fail(errors.New(a.t("核心未安装或未选择，请先安装或指定核心程序。", "Core is not installed or selected. Install or choose a core executable first.")))
+		a.fail(errors.New(locales.In(a.language()).CoreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst()))
 		a.page = "core"
 		return
 	}
 	cpuSetIDs, validCPUChoice := a.selectedCPUSetIDs()
 	if !validCPUChoice {
-		a.fail(errors.New(a.t("核心类型已不可用，请重启 BoxPilot 更新检测结果。", "The selected CPU core type is no longer available. Restart BoxPilot to refresh detection.")))
+		a.fail(errors.New(locales.In(a.language()).TheSelectedCPUCoreTypeIsNoLongerAvailableRestartBoxPilotToRefreshDetection()))
 		return
 	}
 	a.activate(localID)
@@ -666,7 +675,7 @@ func (a *App) startCore(replace bool) {
 		return nil
 	}, func() {
 		if errors.Is(startErr, core.ErrAPIConflict) && !replace {
-			a.confirm(a.t("配置中已有 API 服务", "Configuration already has an API service"), a.t("仅在运行副本中：将已有 type=api 条目替换为随机密钥、随机端口的 127.0.0.1 API，并禁用 dashboard。其他服务和原配置文件保持不变。是否继续？", "In the runtime copy only: replace existing type=api entries with an authenticated 127.0.0.1 API on a random port; disable dashboard hosting. Other services and the original file remain unchanged. Continue?"), func() { a.startCore(true) })
+			a.confirm(locales.In(a.language()).ConfigurationAlreadyHasAnAPIService(), locales.In(a.language()).InTheRuntimeCopyOnlyReplaceExistingTypeApiEntriesWithAnAuthenticated127001APIOnARandomPortDisableDashboardHostingOtherServicesAndTheOriginalFileRemainUnchangedContinue(), func() { a.startCore(true) })
 			return
 		}
 		if startErr != nil {

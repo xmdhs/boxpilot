@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"github.com/xmdhs/boxpilot/locales"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/xmdhs/boxpilot/internal/core"
@@ -34,13 +35,13 @@ func (a *App) profileInUse(id string) bool {
 
 func (a *App) deleteProfile(profile core.Profile) {
 	if a.profileInUse(profile.ID) {
-		a.fail(errors.New(a.t("请先停止使用此配置的核心", "Stop the core before deleting its configuration")))
+		a.fail(errors.New(locales.In(a.language()).StopTheCoreBeforeDeletingItsConfiguration()))
 		return
 	}
-	a.confirm(a.t("删除配置", "Delete Profile"), profile.Name, func() {
+	a.confirm(locales.In(a.language()).DeleteProfile(), profile.Name, func() {
 		// 菜单和确认框都可能停留一段时间，执行前再次检查实际运行配置。
 		if a.profileInUse(profile.ID) {
-			a.fail(errors.New(a.t("请先停止使用此配置的核心", "Stop the core before deleting its configuration")))
+			a.fail(errors.New(locales.In(a.language()).StopTheCoreBeforeDeletingItsConfiguration()))
 			return
 		}
 		a.do("delete-profile", func(context.Context) error {
@@ -66,7 +67,7 @@ func (a *App) profileRow(c *ui.Context, profile core.Profile) {
 	}
 
 	ui.Row(c.Key("profile-row-"+profile.ID)).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(8).Padding(10).Radius(12).Background(background).Border(1, border).Children(func() {
-		selectLabel := a.t("选择配置", "Select Profile") + ": " + profile.Name
+		selectLabel := locales.In(a.language()).SelectProfile() + ": " + profile.Name
 		selectButton := ui.ButtonBase(c.Key("profile-select-" + profile.ID)).FillWidth().Grow(1).MinWidth(0).Padding(4).Radius(8).Label(selectLabel).Tooltip(selectLabel)
 		if selectButton.Hovered() {
 			selectButton.Background(a.palette.hover)
@@ -82,54 +83,54 @@ func (a *App) profileRow(c *ui.Context, profile core.Profile) {
 					ui.Text(c, profile.Name).SingleLine().Tooltip(profile.Name).Bold()
 					ui.Row(c).FillWidth().MinWidth(0).Gap(8).Wrap().AlignItems(ui.Center).Children(func() {
 						if running {
-							a.pill(c, a.t("运行中", "Running"), a.palette.good)
+							a.pill(c, locales.In(a.language()).Running(), a.palette.good)
 						}
 						if selected && a.coreState.Phase == "running" && !running {
-							a.pill(c, a.t("已选择 · 下次启动生效", "Selected · next start"), a.palette.accent)
+							a.pill(c, locales.In(a.language()).SelectedNextStart(), a.palette.accent)
 						}
 						if profile.Type == "remote" {
-							updated := a.t("尚未更新", "Not updated yet")
+							updated := locales.In(a.language()).NotUpdatedYet()
 							if !profile.LastUpdated.IsZero() {
 								updated = profile.LastUpdated.Format("2006-01-02 15:04")
 							}
-							a.label(c, a.t("远程", "Remote")+" · "+updated)
+							a.label(c, locales.In(a.language()).Remote()+" · "+updated)
 						} else {
-							a.label(c, a.t("本地", "Local"))
+							a.label(c, locales.In(a.language()).Local())
 						}
 					})
 				})
 			})
 		})
 		selectButton.OnClick(func() { a.selectProfile(profile) })
-		ui.PopoverMenuButton(c.Key("profile-actions-"+profile.ID), a.t("更多", "More"), func(m *ui.Menu) {
+		ui.PopoverMenuButton(c.Key("profile-actions-"+profile.ID), locales.In(a.language()).More(), func(m *ui.Menu) {
 			m.MaxWidth(260)
-			if m.Item(a.t("编辑配置", "Edit Profile")).Chosen() {
+			if m.Item(locales.In(a.language()).EditProfile()).Chosen() {
 				a.editProfile(profile)
 			}
 			if profile.Type == "remote" {
-				if m.Item(a.t("更新配置", "Update Profile")).Disabled(a.busy["remote-update-"+profile.ID] || a.busy["remote-profile-restart"]).Chosen() {
+				if m.Item(locales.In(a.language()).UpdateProfile()).Disabled(a.busy["remote-update-"+profile.ID] || a.busy["remote-profile-restart"]).Chosen() {
 					a.updateRemoteProfile(profile)
 				}
 			}
-			if m.Item(a.t("复制配置", "Duplicate Profile")).Disabled(a.busy["copy-profile"]).Chosen() {
+			if m.Item(locales.In(a.language()).DuplicateProfile()).Disabled(a.busy["copy-profile"]).Chosen() {
 				a.duplicateProfile(profile)
 			}
 			m.Separator()
-			if m.Item(a.t("删除配置", "Delete Profile")).Danger().Disabled(a.profileInUse(profile.ID) || a.busy["delete-profile"]).Chosen() {
+			if m.Item(locales.In(a.language()).DeleteProfile()).Danger().Disabled(a.profileInUse(profile.ID) || a.busy["delete-profile"]).Chosen() {
 				a.deleteProfile(profile)
 			}
-		}).Label(a.t("配置操作", "Profile actions") + ": " + profile.Name)
+		}).Label(locales.In(a.language()).ProfileActions() + ": " + profile.Name)
 	})
 }
 
 func (a *App) coreManagementCard(c *ui.Context) {
-	a.card(c, a.t("核心管理", "Core Management"), func() {
+	a.card(c, locales.In(a.language()).CoreManagement(), func() {
 		if a.settings.CorePath != "" {
 			a.label(c, a.settings.CorePath).SingleLine().Tooltip(a.settings.CorePath)
 		} else {
-			a.label(c, a.t("请先选择已有核心或安装发行版本。", "Select an existing core or install a release first."))
+			a.label(c, locales.In(a.language()).SelectAnExistingCoreOrInstallAReleaseFirst())
 		}
-		ui.Collapsible(c.Key("core-management"), a.t("可执行文件与版本安装", "Executable & releases"), &a.coreManagerOpen, func() {
+		ui.Collapsible(c.Key("core-management"), locales.In(a.language()).ExecutableReleases(), &a.coreManagerOpen, func() {
 			a.coreBinarySettings(c)
 		}).FillWidth()
 		if a.busy["install"] {
@@ -146,53 +147,53 @@ func (a *App) coreBinarySettings(c *ui.Context) {
 	if a.settings.CorePath != "" && !includes(paths, a.settings.CorePath) {
 		paths = append(paths, a.settings.CorePath)
 	}
-	a.field(c, a.t("选用的可执行文件", "Selected executable"), func() {
-		if ui.Select(c, &a.settings.CorePath, paths).FillWidth().Label(a.t("核心路径", "Core path")).Changed() {
+	a.field(c, locales.In(a.language()).SelectedExecutable(), func() {
+		if ui.Select(c, &a.settings.CorePath, paths).FillWidth().Label(locales.In(a.language()).CorePath()).Changed() {
 			a.saveSettings()
 		}
 	})
 	ui.Column(c).FillWidth().Gap(8).Children(func() {
-		ui.TextInput(c, &a.externalBinary).FillWidth().MinWidth(0).Placeholder(a.t("已有 sing-box 可执行文件的绝对路径", "Absolute path to an existing sing-box binary")).Label(a.t("已有核心路径", "Existing binary path"))
+		ui.TextInput(c, &a.externalBinary).FillWidth().MinWidth(0).Placeholder(locales.In(a.language()).AbsolutePathToAnExistingSingBoxBinary()).Label(locales.In(a.language()).ExistingBinaryPath())
 		ui.Row(c).FillWidth().Gap(8).Wrap().Children(func() {
-			ui.Button(c, a.t("选择文件", "Browse")).OnClick(a.browseCore)
-			ui.Button(c, a.t("验证并使用", "Verify & use")).Disabled(a.busy["inspect"] || tidy(a.externalBinary) == "").OnClick(a.inspectCore)
+			ui.Button(c, locales.In(a.language()).Browse()).OnClick(a.browseCore)
+			ui.Button(c, locales.In(a.language()).VerifyUse()).Disabled(a.busy["inspect"] || tidy(a.externalBinary) == "").OnClick(a.inspectCore)
 		})
 	})
 	ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-		releaseOptions := []string{a.t("稳定版", "Stable"), a.t("测试版", "Beta")}
+		releaseOptions := []string{locales.In(a.language()).Stable(), locales.In(a.language()).Beta()}
 		selected := releaseOptions[0]
 		if a.releaseChannel == "prerelease" {
 			selected = releaseOptions[1]
 		}
-		if ui.Select(c, &selected, releaseOptions).Width(130).Label(a.t("更新通道", "Update Track")).Changed() {
+		if ui.Select(c, &selected, releaseOptions).Width(130).Label(locales.In(a.language()).UpdateTrack()).Changed() {
 			a.releaseChannel = "stable"
 			if selected == releaseOptions[1] {
 				a.releaseChannel = "prerelease"
 			}
 		}
-		ui.Button(c, a.t("检查更新", "Check Update")).Disabled(a.busy["releases"]).OnClick(a.checkReleases)
+		ui.Button(c, locales.In(a.language()).CheckUpdate()).Disabled(a.busy["releases"]).OnClick(a.checkReleases)
 		if a.busy["releases"] {
 			ui.Spinner(c)
 		}
 	})
 	if a.releaseChannel == "prerelease" {
-		a.label(c, a.t("预发布版本可能不稳定；安装前请核对版本。", "Prerelease builds may be unstable. Review the version before installing."))
+		a.label(c, locales.In(a.language()).PrereleaseBuildsMayBeUnstableReviewTheVersionBeforeInstalling())
 	}
 	if len(a.releases) > 0 {
 		versions := make([]string, len(a.releases))
 		for i, release := range a.releases {
 			versions[i] = release.Version
 			if release.Prerelease {
-				versions[i] += " (" + a.t("测试版", "Beta") + ")"
+				versions[i] += " (" + locales.In(a.language()).Beta() + ")"
 			}
 		}
 		if a.releaseChoice == "" || !includes(versions, a.releaseChoice) {
 			a.releaseChoice = versions[0]
 		}
 		ui.Column(c).FillWidth().Gap(8).Children(func() {
-			ui.Select(c, &a.releaseChoice, versions).FillWidth().Label(a.t("版本", "Version"))
-			ui.PrimaryButton(c, a.t("安装", "Install")).AlignSelf(ui.Start).Disabled(a.busy["install"]).OnClick(func() {
-				a.confirm(a.t("安装", "Install"), a.t("将从官方发行源下载、验证 SHA-256 并安装此版本；不会自动启动或重启核心。", "Download from official releases, verify SHA-256, and install. The core will not start or restart automatically.")+"\n"+a.releaseChoice, a.installCore)
+			ui.Select(c, &a.releaseChoice, versions).FillWidth().Label(locales.In(a.language()).Version())
+			ui.PrimaryButton(c, locales.In(a.language()).Install()).AlignSelf(ui.Start).Disabled(a.busy["install"]).OnClick(func() {
+				a.confirm(locales.In(a.language()).Install(), locales.In(a.language()).DownloadFromOfficialReleasesVerifySHA256AndInstallTheCoreWillNotStartOrRestartAutomatically()+"\n"+a.releaseChoice, a.installCore)
 			})
 		})
 	}

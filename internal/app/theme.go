@@ -5,7 +5,9 @@ import (
 	"math"
 	"strings"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/xmdhs/boxpilot/locales"
 )
 
 type palette struct {
@@ -68,23 +70,44 @@ func makePalette(dark bool, accent string) palette {
 	p.theme = t
 	return p
 }
-func (a *App) t(zh, en string) string {
-	if a.language() == "en" {
-		return en
-	}
-	return zh
-}
+
 func (a *App) language() string {
-	if a.settings.Language == "en" {
-		return "en"
+	for _, tag := range locales.Catalog.Languages() {
+		if a.settings.Language == tag {
+			return tag
+		}
 	}
 	return "zh-Hans"
+}
+
+// Language returns the supported catalog language selected in persisted settings.
+func (a *App) Language() string { return a.language() }
+
+func (a *App) setLanguage(language string) {
+	supported := false
+	for _, tag := range locales.Catalog.Languages() {
+		if tag == language {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		language = "zh-Hans"
+		if a.language() == "en" {
+			language = "en"
+		}
+	}
+	a.settings.Language = language
+	mygo.App.SetLocale(language)
+	if a.desktop != nil {
+		a.desktop.SetLanguage(language)
+	}
 }
 func (a *App) label(c *ui.Context, s string) ui.Element {
 	return ui.Text(c, s).TextColor(a.palette.muted).FontSize(12)
 }
-func (a *App) heading(c *ui.Context, zh, en string) {
-	ui.Text(c, a.t(zh, en)).Font("Source Serif 4, Georgia, serif").FontSize(27).FontWeight(560).TextColor(a.palette.text)
+func (a *App) heading(c *ui.Context, title string) {
+	ui.Text(c, title).Font("Source Serif 4, Georgia, serif").FontSize(27).FontWeight(560).TextColor(a.palette.text)
 }
 func (a *App) card(c *ui.Context, title string, body func()) ui.Element {
 	return ui.Column(c).FillWidth().Padding(20).Gap(14).Radius(16).Background(a.palette.card).Border(1, a.palette.border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, .035)).Children(func() {
@@ -120,8 +143,8 @@ func (a *App) setting(c *ui.Context, title, hint string, fn func()) {
 		fn()
 	})
 }
-func (a *App) empty(c *ui.Context, zh, en string) {
-	ui.Column(c).Grow(1).FillWidth().Center().Padding(24).Gap(12).Children(func() { a.label(c, a.t(zh, en)) })
+func (a *App) empty(c *ui.Context, message string) {
+	ui.Column(c).Grow(1).FillWidth().Center().Padding(24).Gap(12).Children(func() { a.label(c, message) })
 }
 func (a *App) statusColor(phase string) ui.Color {
 	switch phase {

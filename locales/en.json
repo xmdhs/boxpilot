@@ -1,0 +1,995 @@
+{
+  "@@locale": "en",
+  "@about": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@absolutePathToAnExistingSingBoxBinary": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@active": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@all": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@anotherProfileIsSelectedTheRunningCoreIsUnchangedUntilTheNextStart": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@app": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@appearance": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@applyingARemoteProfileUpdateTryStartingAgainShortly": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@applyToLocalSingBox": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@automaticLetWindowsSchedule": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@autoUpdate": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@autoUpdateInterval": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@beta": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@blue": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@browse": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@byDate": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@byTraffic": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@byTrafficTotal": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@cancel": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@cancelDownload": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@cancelTest": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@chain": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@checkConfiguration": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@checking": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@checkUpdate": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@chooseAWayToConnectToSingBoxAddARemoteServerOrSetUpALocalCore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@clashMode": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@clearLogs": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@close": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@closeAllConnections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@closeConnection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@closed": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@collapse": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@configuration": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@configurationAlreadyHasAnAPIService": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@configurationFileTooLarge": {
+    "description": "An application error shown to the user."
+  },
+  "@configurationMayAffectTUNDNSRoutingAndListeners": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@configurationURL": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@confirmThePlaintextConnectionWarningFirst": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connect": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connected": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connecting": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connectionFailed": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@connectToARemoteServer": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@copy": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@copyLogs": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@core": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@coreGroupEfficiencyClass": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@coreIsNotInstalled": {
+    "description": "Test assertion message."
+  },
+  "@coreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@coreManagement": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@corePath": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@coreType": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@cpuScheduling": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@createdAt": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@credentialsSavedCleanupFailure": {
+    "description": "An application error shown to the user.",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "The filesystem error"
+      }
+    }
+  },
+  "@customColor": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@dark": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@dashboardCard": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@dashboardItems": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@default": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@defaultsToTheURLHostnameWhenEmpty": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@delete": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@deleteProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@destination": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@detectingCPUCoreTypesTryStartingTheCoreAgainInAMoment": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@discard": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@domain": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@done": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@downlink": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@download": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@downloadFromOfficialReleasesVerifySHA256AndInstallTheCoreWillNotStartOrRestartAutomatically": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@downloadRPM": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@duplicateProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@durationSeconds": {
+    "description": "A duration choice in the network test interval selector.",
+    "placeholders": {
+      "seconds": {
+        "type": "String",
+        "example": "20"
+      }
+    }
+  },
+  "@editContent": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@editProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@editServer": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@efficiencyCoresECore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@elapsed": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@emptyLogs": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@emptyProfiles": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@enableTray": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@enterAValidHttpSAPIURLWithoutUserInfoQueryOrFragment": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@error": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@executableReleases": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@existingBinaryPath": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@expand": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@externalAddress": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@getStartedWithBoxPilot": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@graphite": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@green": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@groups": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@iConsentToPlaintextStorageInAPrivateLocalFile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@idleLatency": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@importFromFile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@importProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@importRemoteProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@inbound": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@inboundType": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@inMinutes": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@install": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@inTheRuntimeCopyOnlyReplaceExistingTypeApiEntriesWithAnAuthenticated127001APIOnARandomPortDisableDashboardHostingOtherServicesAndTheOriginalFileRemainUnchangedContinue": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@iUnderstandAndAllowThisPlaintextConnection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@keepTrayInBackground": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@language": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@lastUpdated": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@latency": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@light": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@local": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@localDisplayName": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@logLevel": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@logs": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@lowPowerEfficiencyCoresLPECore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@matchRule": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@maxRuntime": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@memory": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@metadata": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@minimizeToTray": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@mode": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@more": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@name": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@natFiltering": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@natMapping": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@natTypeDetection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@network": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@networkQuality": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@newProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@newServer": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@noActiveConnections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@noClosedConnections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@noConnections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@noGroups": {
+    "description": "Empty-state text when no outbound groups are configured."
+  },
+  "@noMatchingConnections": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@noProfilesYetCreateImportOrAddARemoteProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@notSupportedByServer": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@notUpdatedYet": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@ok": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@onlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@openAtLogin": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@openBoxPilot": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@orange": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@outbound": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@overview": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@pauseUpdates": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@performanceCoresPCore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@pink": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@plaintextCredentialStorageRequiresConsent": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@prereleaseBuildsMayBeUnstableReviewTheVersionBeforeInstalling": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@process": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@profileActions": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@profiles": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@protocol": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@purple": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@quit": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@red": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@refresh": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@remote": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@remoteProfileImportConfirmation": {
+    "description": "Confirmation before importing a remote profile.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Home"
+      },
+      "host": {
+        "type": "String",
+        "example": "example.com"
+      }
+    }
+  },
+  "@remoteProfileImportLinkMissingURL": {
+    "description": "An application error shown to the user."
+  },
+  "@remoteProfileNoLongerExists": {
+    "description": "An application error shown to the user."
+  },
+  "@remoteProfileUpdateIntervalTooLong": {
+    "description": "An application error shown to the user."
+  },
+  "@remoteProfileURL": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@required": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@reset": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@results": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@resumeUpdates": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@retry": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@running": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@runningProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@runSingBoxAsAdministrator": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@save": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@search": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@secret": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@selectAnExistingCoreOrInstallAReleaseFirst": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@selectedExecutable": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@selectedNextStart": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@selectProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serial": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@server": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serverDetails": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@servers": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@service": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serviceFailedToStart": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serviceIsRunning": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serviceNotStarted": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serviceStarting": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@serviceStopping": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@sessionThisSessionKeychainSystemCredentialStoreFilePlaintext": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@settings": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@settingsLoadFailure": {
+    "description": "An application error shown to the user.",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "The filesystem error"
+      }
+    }
+  },
+  "@setUpALocalCore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@sortBy": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@source": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@stable": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@start": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@startLocalCore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@startTest": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@state": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@status": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@stop": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@stopLocalCore": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@stopTheCoreBeforeDeletingItsConfiguration": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@storageMode": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@stunTest": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@system": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@testConfiguration": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@testConnection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@testGroup": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@thatCPUCoreTypeIsNoLongerAvailableRestartBoxPilotAndTryAgain": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@theCoreIsChangingStateThisUpdateHasNotBeenApplied": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@theLocalCoreControllerIsUnavailable": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@theme": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@theSelectedCPUCoreTypeIsNoLongerAvailable": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@theSelectedCPUCoreTypeIsNoLongerAvailableRestartBoxPilotToRefreshDetection": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@thisComputer": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@toggleNavigation": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@tools": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@traffic": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@unavailable": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@unsavedChanges": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@updateProfile": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@updatesArePausedThisIsAFrozenSnapshotResumeToSeeTheLatestLogs": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@updateTrack": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@uplink": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@upload": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@uploadRPM": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@uptime": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@url": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@urlTest": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@user": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@verifyUse": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@version": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@warningHTTPMayExposeYourSecret": {
+    "description": "Test assertion message."
+  },
+  "@warningHTTPMayExposeYourSecretToNetworkObservers": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@windowsUserAccountControlAsksForApprovalWhenSingBoxStartsAndAgainWhenItStopsBoxPilotItselfDoesNotRunAsAdministrator": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@yellow": {
+    "description": "BoxPilot user-interface text."
+  },
+  "@youHaveUnsavedChangesDoYouWantToDiscardThem": {
+    "description": "BoxPilot user-interface text."
+  },
+  "about": "About",
+  "absolutePathToAnExistingSingBoxBinary": "Absolute path to an existing sing-box binary",
+  "active": "Active",
+  "all": "All",
+  "anotherProfileIsSelectedTheRunningCoreIsUnchangedUntilTheNextStart": "Another profile is selected. The running core is unchanged until the next start.",
+  "app": "App",
+  "appearance": "Appearance",
+  "applyingARemoteProfileUpdateTryStartingAgainShortly": "Applying a remote profile update; try starting again shortly.",
+  "applyToLocalSingBox": "Apply to local sing-box",
+  "automaticLetWindowsSchedule": "Automatic (let Windows schedule)",
+  "autoUpdate": "Auto Update",
+  "autoUpdateInterval": "Auto Update Interval",
+  "beta": "Beta",
+  "blue": "Blue",
+  "browse": "Browse",
+  "byDate": "By date",
+  "byTraffic": "By traffic",
+  "byTrafficTotal": "By traffic total",
+  "cancel": "Cancel",
+  "cancelDownload": "Cancel download",
+  "cancelTest": "Cancel test",
+  "chain": "Chain",
+  "checkConfiguration": "Check configuration",
+  "checking": "Checking...",
+  "checkUpdate": "Check Update",
+  "chooseAWayToConnectToSingBoxAddARemoteServerOrSetUpALocalCore": "Choose a way to connect to sing-box: add a remote server or set up a local core.",
+  "clashMode": "Clash Mode",
+  "clearLogs": "Clear Logs",
+  "close": "Close",
+  "closeAllConnections": "Close All Connections",
+  "closeConnection": "Close connection",
+  "closed": "Closed",
+  "collapse": "Collapse",
+  "configuration": "Configuration",
+  "configurationAlreadyHasAnAPIService": "Configuration already has an API service",
+  "configurationFileTooLarge": "Configuration file exceeds the 8 MiB limit",
+  "configurationMayAffectTUNDNSRoutingAndListeners": "Configuration may affect TUN, DNS, routing, and listeners.",
+  "configurationURL": "Configuration URL",
+  "confirmThePlaintextConnectionWarningFirst": "Confirm the plaintext connection warning first",
+  "connect": "Connect",
+  "connected": "Connected",
+  "connecting": "Connecting...",
+  "connection": "Connection",
+  "connectionFailed": "Connection failed",
+  "connections": "Connections",
+  "connectToARemoteServer": "Connect to a remote server",
+  "copy": "Copy",
+  "copyLogs": "Copy logs",
+  "core": "Core",
+  "coreGroupEfficiencyClass": "Core group · efficiency class",
+  "coreIsNotInstalled": "Core is not installed",
+  "coreIsNotInstalledOrSelectedInstallOrChooseACoreExecutableFirst": "Core is not installed or selected. Install or choose a core executable first.",
+  "coreManagement": "Core Management",
+  "corePath": "Core path",
+  "coreType": "Core type",
+  "cpuScheduling": "CPU Scheduling",
+  "createdAt": "Created at",
+  "credentialsSavedCleanupFailure": "The new credentials and settings were saved, but cleaning up old credentials failed: {error}",
+  "customColor": "Custom color",
+  "dark": "Dark",
+  "dashboardCard": "Dashboard card",
+  "dashboardItems": "Dashboard Items",
+  "default": "Default",
+  "defaultsToTheURLHostnameWhenEmpty": "Defaults to the URL hostname when empty",
+  "delete": "Delete",
+  "deleteProfile": "Delete Profile",
+  "destination": "Destination",
+  "detectingCPUCoreTypesTryStartingTheCoreAgainInAMoment": "Detecting CPU core types; try starting the core again in a moment.",
+  "discard": "Discard",
+  "domain": "Domain",
+  "done": "Done",
+  "downlink": "Downlink",
+  "download": "Download",
+  "downloadFromOfficialReleasesVerifySHA256AndInstallTheCoreWillNotStartOrRestartAutomatically": "Download from official releases, verify SHA-256, and install. The core will not start or restart automatically.",
+  "downloadRPM": "Download RPM",
+  "duplicateProfile": "Duplicate Profile",
+  "durationSeconds": "{seconds} seconds",
+  "editContent": "Edit Content",
+  "editProfile": "Edit Profile",
+  "editServer": "Edit Server",
+  "efficiencyCoresECore": "Efficiency cores (E-core)",
+  "elapsed": "Elapsed",
+  "emptyLogs": "Empty logs",
+  "emptyProfiles": "Empty profiles",
+  "enableTray": "Enable tray",
+  "enterAValidHttpSAPIURLWithoutUserInfoQueryOrFragment": "Enter a valid http(s) API URL without user info, query, or fragment",
+  "error": "Error",
+  "executableReleases": "Executable & releases",
+  "existingBinaryPath": "Existing binary path",
+  "expand": "Expand",
+  "externalAddress": "External address",
+  "getStartedWithBoxPilot": "Get started with BoxPilot",
+  "graphite": "Graphite",
+  "green": "Green",
+  "groups": "Groups",
+  "iConsentToPlaintextStorageInAPrivateLocalFile": "I consent to plaintext storage in a private local file",
+  "idleLatency": "Idle latency",
+  "importFromFile": "Import from File",
+  "importProfile": "Import Profile",
+  "importRemoteProfile": "Import Remote Profile",
+  "inbound": "Inbound",
+  "inboundType": "Inbound type",
+  "inMinutes": "In Minutes",
+  "install": "Install",
+  "inTheRuntimeCopyOnlyReplaceExistingTypeApiEntriesWithAnAuthenticated127001APIOnARandomPortDisableDashboardHostingOtherServicesAndTheOriginalFileRemainUnchangedContinue": "In the runtime copy only: replace existing type=api entries with an authenticated 127.0.0.1 API on a random port; disable dashboard hosting. Other services and the original file remain unchanged. Continue?",
+  "iUnderstandAndAllowThisPlaintextConnection": "I understand and allow this plaintext connection",
+  "keepTrayInBackground": "Keep Tray in Background",
+  "language": "Language",
+  "lastUpdated": "Last Updated",
+  "latency": "Latency",
+  "light": "Light",
+  "local": "Local",
+  "localDisplayName": "Local display name",
+  "logLevel": "Log level",
+  "logs": "Logs",
+  "lowPowerEfficiencyCoresLPECore": "Low-power efficiency cores (LP E-core)",
+  "matchRule": "Match rule",
+  "maxRuntime": "Max runtime",
+  "memory": "Memory",
+  "metadata": "Metadata",
+  "minimizeToTray": "Minimize to tray",
+  "mode": "Mode",
+  "more": "More",
+  "name": "Name",
+  "natFiltering": "NAT filtering",
+  "natMapping": "NAT mapping",
+  "natTypeDetection": "NAT type detection",
+  "network": "Network",
+  "networkQuality": "Network Quality",
+  "newProfile": "New Profile",
+  "newServer": "New Server",
+  "noActiveConnections": "No active connections",
+  "noClosedConnections": "No closed connections",
+  "noConnections": "No connections",
+  "noGroups": "No groups",
+  "noMatchingConnections": "No matching connections",
+  "noProfilesYetCreateImportOrAddARemoteProfile": "No profiles yet. Create, import, or add a remote profile.",
+  "notSupportedByServer": "Not supported by server",
+  "notUpdatedYet": "Not updated yet",
+  "ok": "Ok",
+  "onlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction": "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, applying CPU Sets uses a separate one-shot UAC-elevated action.",
+  "onlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning": "Only child processes started here are managed. Quit stops the core; hiding keeps it running.",
+  "openAtLogin": "Open at login",
+  "openBoxPilot": "Open BoxPilot",
+  "orange": "Orange",
+  "outbound": "Outbound",
+  "overview": "Overview",
+  "pauseUpdates": "Pause updates",
+  "performanceCoresPCore": "Performance cores (P-core)",
+  "pink": "Pink",
+  "plaintextCredentialStorageRequiresConsent": "Plaintext credential storage requires consent",
+  "prereleaseBuildsMayBeUnstableReviewTheVersionBeforeInstalling": "Prerelease builds may be unstable. Review the version before installing.",
+  "process": "Process",
+  "profileActions": "Profile actions",
+  "profiles": "Profiles",
+  "protocol": "Protocol",
+  "purple": "Purple",
+  "quit": "Quit",
+  "red": "Red",
+  "refresh": "Refresh",
+  "remote": "Remote",
+  "remoteProfileImportConfirmation": "Are you sure to import {name}? You will connect to {host} to download the configuration.",
+  "remoteProfileImportLinkMissingURL": "Remote profile import link has no URL",
+  "remoteProfileNoLongerExists": "Remote profile no longer exists",
+  "remoteProfileUpdateIntervalTooLong": "Update interval cannot exceed 10080 minutes",
+  "remoteProfileURL": "Remote profile URL",
+  "required": "Required",
+  "reset": "Reset",
+  "results": "Results",
+  "resumeUpdates": "Resume updates",
+  "retry": "Retry",
+  "running": "Running",
+  "runningProfile": "Running profile",
+  "runSingBoxAsAdministrator": "Run sing-box as administrator",
+  "save": "Save",
+  "search": "Search",
+  "secret": "Secret",
+  "selectAnExistingCoreOrInstallAReleaseFirst": "Select an existing core or install a release first.",
+  "selectedExecutable": "Selected executable",
+  "selectedNextStart": "Selected · next start",
+  "selectProfile": "Select Profile",
+  "serial": "Serial",
+  "server": "Server",
+  "serverDetails": "Server details",
+  "servers": "Servers",
+  "service": "Service",
+  "serviceFailedToStart": "Service failed to start",
+  "serviceIsRunning": "Service is Running",
+  "serviceNotStarted": "Service not started",
+  "serviceStarting": "Service starting...",
+  "serviceStopping": "Service stopping...",
+  "sessionThisSessionKeychainSystemCredentialStoreFilePlaintext": "session: this session; keychain: system credential store; file: plaintext.",
+  "settings": "Settings",
+  "settingsLoadFailure": "Could not read settings; saving is paused to protect the original file: {error}",
+  "setUpALocalCore": "Set up a local core",
+  "sortBy": "Sort By",
+  "source": "Source",
+  "stable": "Stable",
+  "start": "Start",
+  "startLocalCore": "Start local core",
+  "startTest": "Start test",
+  "state": "State",
+  "status": "Status",
+  "stop": "Stop",
+  "stopLocalCore": "Stop local core",
+  "stopTheCoreBeforeDeletingItsConfiguration": "Stop the core before deleting its configuration",
+  "storageMode": "Storage mode",
+  "stunTest": "STUN Test",
+  "system": "System",
+  "testConfiguration": "Test configuration",
+  "testConnection": "Test connection",
+  "testGroup": "Test group",
+  "thatCPUCoreTypeIsNoLongerAvailableRestartBoxPilotAndTryAgain": "That CPU core type is no longer available. Restart BoxPilot and try again.",
+  "theCoreIsChangingStateThisUpdateHasNotBeenApplied": "The core is changing state; this update has not been applied.",
+  "theLocalCoreControllerIsUnavailable": "The local core controller is unavailable.",
+  "theme": "Theme",
+  "theSelectedCPUCoreTypeIsNoLongerAvailable": "The selected CPU core type is no longer available.",
+  "theSelectedCPUCoreTypeIsNoLongerAvailableRestartBoxPilotToRefreshDetection": "The selected CPU core type is no longer available. Restart BoxPilot to refresh detection.",
+  "thisComputer": "This Computer",
+  "toggleNavigation": "Toggle navigation",
+  "tools": "Tools",
+  "traffic": "Traffic",
+  "unavailable": "Unavailable",
+  "unsavedChanges": "Unsaved Changes",
+  "updateProfile": "Update Profile",
+  "updatesArePausedThisIsAFrozenSnapshotResumeToSeeTheLatestLogs": "Updates are paused. This is a frozen snapshot; resume to see the latest logs.",
+  "updateTrack": "Update Track",
+  "uplink": "Uplink",
+  "upload": "Upload",
+  "uploadRPM": "Upload RPM",
+  "uptime": "Uptime",
+  "url": "URL",
+  "urlTest": "URL test",
+  "user": "User",
+  "verifyUse": "Verify & use",
+  "version": "Version",
+  "warningHTTPMayExposeYourSecret": "Warning: HTTP may expose your secret",
+  "warningHTTPMayExposeYourSecretToNetworkObservers": "Warning: HTTP may expose your secret to network observers.",
+  "windowsUserAccountControlAsksForApprovalWhenSingBoxStartsAndAgainWhenItStopsBoxPilotItselfDoesNotRunAsAdministrator": "Windows User Account Control asks for approval when sing-box starts and again when it stops. BoxPilot itself does not run as administrator.",
+  "yellow": "Yellow",
+  "youHaveUnsavedChangesDoYouWantToDiscardThem": "You have unsaved changes. Do you want to discard them?"
+}

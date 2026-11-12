@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 
 	"github.com/xmdhs/boxpilot/internal/core"
 )
@@ -50,12 +51,12 @@ func (a *App) selectedCPUSetIDs() ([]uint32, bool) {
 func (a *App) applyCPUCoreChoice() {
 	ids, valid := a.selectedCPUSetIDs()
 	if !valid {
-		a.fail(errors.New(a.t("核心类型已不可用，请重启 BoxPilot 后重试。", "That CPU core type is no longer available. Restart BoxPilot and try again.")))
+		a.fail(errors.New(locales.In(a.language()).ThatCPUCoreTypeIsNoLongerAvailableRestartBoxPilotAndTryAgain()))
 		return
 	}
 	manager := a.manager
 	if manager == nil {
-		a.fail(errors.New(a.t("本机核心控制器不可用。", "The local core controller is unavailable.")))
+		a.fail(errors.New(locales.In(a.language()).TheLocalCoreControllerIsUnavailable()))
 		return
 	}
 	a.do("cpu-core-selection", func(ctx context.Context) error {
@@ -66,12 +67,12 @@ func (a *App) applyCPUCoreChoice() {
 func (a *App) cpuCoreGroupLabel(group core.CPUCoreGroup) string {
 	switch group.Kind {
 	case "performance":
-		return a.t("性能核（P-core）", "Performance cores (P-core)")
+		return locales.In(a.language()).PerformanceCoresPCore()
 	case "efficiency":
-		return a.t("能效核（E-core）", "Efficiency cores (E-core)")
+		return locales.In(a.language()).EfficiencyCoresECore()
 	case "low-power":
-		return a.t("低功耗能效核（LP E-core）", "Low-power efficiency cores (LP E-core)")
+		return locales.In(a.language()).LowPowerEfficiencyCoresLPECore()
 	default:
-		return fmt.Sprintf("%s %d", a.t("核心组 · 效率等级", "Core group · efficiency class"), group.EfficiencyClass)
+		return fmt.Sprintf("%s %d", locales.In(a.language()).CoreGroupEfficiencyClass(), group.EfficiencyClass)
 	}
 }

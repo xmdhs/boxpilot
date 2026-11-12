@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"github.com/xmdhs/boxpilot/locales"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestStartingWithoutInstalledCoreExplainsWhatToDo(t *testing.T) {
 	a.settings.CorePath = ""
 	a.manager = core.NewManager(a.root, nil)
 	a.startCore(false)
-	if !a.errorOpen || !strings.Contains(a.errorText, a.t("核心未安装", "Core is not installed")) {
+	if !a.errorOpen || !strings.Contains(a.errorText, locales.In(a.language()).CoreIsNotInstalled()) {
 		t.Fatalf("missing clear not-installed error: open=%t text=%q", a.errorOpen, a.errorText)
 	}
 }

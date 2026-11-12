@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -25,7 +26,7 @@ func serverFormContains(outer, inner ui.Rect) bool {
 
 func serverFormScroll(t *testing.T, tt *ui.Tester, a *App, dy float32) ui.Rect {
 	t.Helper()
-	r, ok := tt.Find(a.t("服务器详情", "Server details"))
+	r, ok := tt.Find(locales.In(a.language()).ServerDetails())
 	if !ok || r.W <= 0 || r.H <= 0 {
 		t.Fatalf("missing form scroll viewport: %+v", r)
 	}
@@ -66,17 +67,17 @@ func TestServerFormSmallWindowLayout(t *testing.T) {
 						if !serverFormContains(ui.Rect{W: 480, H: 460}, panel) || panel.W > 480*.94+.5 || panel.H > 460*.94+.5 {
 							t.Fatalf("dialog exceeds small window: %+v", panel)
 						}
-						title := a.t("新建服务器", "New Server")
+						title := locales.In(a.language()).NewServer()
 						if editing {
-							title = a.t("编辑服务器", "Edit Server")
+							title = locales.In(a.language()).EditServer()
 						}
 						titleBefore, ok := tt.Find(title)
 						if !ok {
 							t.Fatal("missing dialog title")
 						}
-						buttons := []string{a.t("测试连接", "Test connection"), a.t("取消", "Cancel"), a.t("保存", "Save")}
+						buttons := []string{locales.In(a.language()).TestConnection(), locales.In(a.language()).Cancel(), locales.In(a.language()).Save()}
 						if editing {
-							buttons = append(buttons, a.t("删除", "Delete"))
+							buttons = append(buttons, locales.In(a.language()).Delete())
 						}
 						before := map[string]ui.Rect{}
 						for _, name := range buttons {
@@ -86,15 +87,15 @@ func TestServerFormSmallWindowLayout(t *testing.T) {
 							}
 							before[name] = info.Bounds
 						}
-						nameBefore, _ := tt.Find(a.t("名称", "Name"))
+						nameBefore, _ := tt.Find(locales.In(a.language()).Name())
 						viewport := serverFormScroll(t, tt, a, 10000)
 						if remote {
-							nameAfter, _ := tt.Find(a.t("名称", "Name"))
+							nameAfter, _ := tt.Find(locales.In(a.language()).Name())
 							// tester 会将完全裁剪的控件边界置零，不能只比较纵坐标。
 							if nameBefore.H <= 0 || nameAfter.H > 0 && nameAfter.Y >= nameBefore.Y {
 								t.Fatalf("long form did not scroll: before=%+v after=%+v", nameBefore, nameAfter)
 							}
-							if !tt.HasText(a.t("警告：此地址使用明文 HTTP", "Warning: HTTP may expose your secret")) {
+							if !tt.HasText(locales.In(a.language()).WarningHTTPMayExposeYourSecret()) {
 								t.Fatal("missing HTTP warning")
 							}
 						}
@@ -112,8 +113,8 @@ func TestServerFormSmallWindowLayout(t *testing.T) {
 						}
 						if remote {
 							for _, name := range []string{
-								a.t("我同意将密钥明文保存到本机受限权限文件", "I consent to plaintext storage in a private local file"),
-								a.t("我了解并允许此明文连接", "I understand and allow this plaintext connection"),
+								locales.In(a.language()).IConsentToPlaintextStorageInAPrivateLocalFile(),
+								locales.In(a.language()).IUnderstandAndAllowThisPlaintextConnection(),
 							} {
 								info := serverFormAccess(t, tt, ui.RoleCheckBox, name)
 								if info.Offscreen || !serverFormContains(viewport, info.Bounds) {
@@ -121,7 +122,7 @@ func TestServerFormSmallWindowLayout(t *testing.T) {
 								}
 							}
 						}
-						if err := tt.Click(a.t("取消", "Cancel")); err != nil || a.serverDialog {
+						if err := tt.Click(locales.In(a.language()).Cancel()); err != nil || a.serverDialog {
 							t.Fatalf("cancel inaccessible: err=%v open=%t", err, a.serverDialog)
 						}
 					})
@@ -142,50 +143,50 @@ func TestServerFormSmallWindowConsentAndLabels(t *testing.T) {
 			a.serverSecret = "unchanged-secret"
 			a.serverID = "layout-consent"
 			tt := ui.NewTester(a.serverForm, 480, 460)
-			secret := serverFormAccess(t, tt, ui.RoleTextField, a.t("密钥", "Secret"))
+			secret := serverFormAccess(t, tt, ui.RoleTextField, locales.In(a.language()).Secret())
 			if !secret.Password {
 				t.Fatal("secret is not a password field")
 			}
-			if _, ok := tt.AccessByRole(ui.RoleButton, a.t("连接", "Connect")); ok {
+			if _, ok := tt.AccessByRole(ui.RoleButton, locales.In(a.language()).Connect()); ok {
 				t.Fatal("ambiguous Connect action remains in form")
 			}
 			serverFormScroll(t, tt, a, 10000)
-			mode := serverFormAccess(t, tt, ui.RolePopUpButton, a.t("保存方式", "Storage mode"))
+			mode := serverFormAccess(t, tt, ui.RolePopUpButton, locales.In(a.language()).StorageMode())
 			if mode.Value != "file" {
 				t.Fatalf("storage mode is not distinct from secret: %+v", mode)
 			}
-			probeName := a.t("测试连接", "Test connection")
+			probeName := locales.In(a.language()).TestConnection()
 			if !serverFormAccess(t, tt, ui.RoleButton, probeName).Disabled {
 				t.Fatal("HTTP probe enabled without consent")
 			}
 			// 保存仍由原有校验拒绝未同意的操作，不额外改变按钮禁用规则。
-			if err := tt.Click(a.t("保存", "Save")); err != nil {
+			if err := tt.Click(locales.In(a.language()).Save()); err != nil {
 				t.Fatal(err)
 			}
 			if !a.serverDialog || a.busy["save-server"] || a.serverHTTPConsent || a.serverFileConsent ||
-				a.errorText != a.t("请先确认明文连接风险", "Confirm the plaintext connection warning first") {
+				a.errorText != locales.In(a.language()).ConfirmThePlaintextConnectionWarningFirst() {
 				t.Fatal("save did not enforce HTTP consent")
 			}
-			if err := tt.Click(a.t("我了解并允许此明文连接", "I understand and allow this plaintext connection")); err != nil {
+			if err := tt.Click(locales.In(a.language()).IUnderstandAndAllowThisPlaintextConnection()); err != nil {
 				t.Fatal(err)
 			}
 			if !a.serverHTTPConsent || serverFormAccess(t, tt, ui.RoleButton, probeName).Disabled {
 				t.Fatal("HTTP consent did not enable probe")
 			}
-			if err := tt.Click(a.t("保存", "Save")); err != nil {
+			if err := tt.Click(locales.In(a.language()).Save()); err != nil {
 				t.Fatal(err)
 			}
 			if !a.serverDialog || a.busy["save-server"] || a.serverFileConsent ||
-				a.errorText != a.t("明文密钥存储需要明确同意", "Plaintext credential storage requires consent") {
+				a.errorText != locales.In(a.language()).PlaintextCredentialStorageRequiresConsent() {
 				t.Fatal("save did not enforce plaintext storage consent")
 			}
-			if err := tt.Click(a.t("我同意将密钥明文保存到本机受限权限文件", "I consent to plaintext storage in a private local file")); err != nil {
+			if err := tt.Click(locales.In(a.language()).IConsentToPlaintextStorageInAPrivateLocalFile()); err != nil {
 				t.Fatal(err)
 			}
 			if !a.serverFileConsent || a.serverSecret != "unchanged-secret" {
 				t.Fatal("storage consent changed credentials or failed to toggle")
 			}
-			if err := tt.Click(a.t("保存", "Save")); err != nil {
+			if err := tt.Click(locales.In(a.language()).Save()); err != nil {
 				t.Fatal(err)
 			}
 			a.workers.Wait()
@@ -193,10 +194,10 @@ func TestServerFormSmallWindowConsentAndLabels(t *testing.T) {
 				t.Fatalf("consented save did not reach credential worker: value=%q err=%v", value, err)
 			}
 			// fixture 丢弃主线程回调，事务完成前仍保持忙碌；取消行为不变。
-			if !serverFormAccess(t, tt, ui.RoleButton, a.t("保存", "Save")).Disabled {
+			if !serverFormAccess(t, tt, ui.RoleButton, locales.In(a.language()).Save()).Disabled {
 				t.Fatal("save did not lock while callback is pending")
 			}
-			if err := tt.Click(a.t("取消", "Cancel")); err != nil || a.serverDialog {
+			if err := tt.Click(locales.In(a.language()).Cancel()); err != nil || a.serverDialog {
 				t.Fatalf("cancel failed: %v", err)
 			}
 		})
@@ -216,13 +217,13 @@ func TestServerListSmallWindowActions(t *testing.T) {
 			a.page = "settings"
 			tt := ui.NewTester(a.view, 480, 460)
 			tt.Scroll(240, 230, 0, 10000)
-			for _, label := range []string{a.t("连接", "Connect"), a.t("编辑服务器", "Edit Server"), a.t("新建服务器", "New Server")} {
+			for _, label := range []string{locales.In(a.language()).Connect(), locales.In(a.language()).EditServer(), locales.In(a.language()).NewServer()} {
 				info := serverFormAccess(t, tt, ui.RoleButton, label)
 				if info.Offscreen || !serverFormContains(ui.Rect{W: 480, H: 460}, info.Bounds) {
 					t.Fatalf("server list action %q overflows small window: %+v", label, info)
 				}
 			}
-			if err := tt.Click(a.t("编辑服务器", "Edit Server")); err != nil || !a.serverDialog || a.serverID != "layout-list" {
+			if err := tt.Click(locales.In(a.language()).EditServer()); err != nil || !a.serverDialog || a.serverID != "layout-list" {
 				t.Fatalf("edit action unreachable: err=%v open=%t id=%q", err, a.serverDialog, a.serverID)
 			}
 		})
@@ -242,27 +243,27 @@ func TestServerFormSmallWindowDisabledStates(t *testing.T) {
 				a.busy["save-server"] = state == "saving"
 				a.busy["probe"] = state == "probing"
 				tt := ui.NewTester(a.serverForm, 480, 460)
-				secret := serverFormAccess(t, tt, ui.RoleTextField, a.t("密钥", "Secret"))
+				secret := serverFormAccess(t, tt, ui.RoleTextField, locales.In(a.language()).Secret())
 				if secret.Disabled != (state == "loading") {
 					t.Fatalf("secret disabled state changed: %+v", secret)
 				}
-				save := serverFormAccess(t, tt, ui.RoleButton, a.t("保存", "Save"))
+				save := serverFormAccess(t, tt, ui.RoleButton, locales.In(a.language()).Save())
 				if save.Disabled != (state != "probing") {
 					t.Fatalf("save disabled state changed: %+v", save)
 				}
-				probe := serverFormAccess(t, tt, ui.RoleButton, a.t("测试连接", "Test connection"))
+				probe := serverFormAccess(t, tt, ui.RoleButton, locales.In(a.language()).TestConnection())
 				if probe.Disabled != (state == "probing") {
 					t.Fatalf("probe disabled state changed: %+v", probe)
 				}
 				if state == "loading" {
-					if err := tt.Click(a.t("密钥", "Secret")); err == nil {
+					if err := tt.Click(locales.In(a.language()).Secret()); err == nil {
 						tt.Type("replacement")
 					}
 					if a.serverSecret != "keep-secret" {
 						t.Fatal("credential loading allowed secret editing")
 					}
 				}
-				if err := tt.Click(a.t("取消", "Cancel")); err != nil || a.serverDialog {
+				if err := tt.Click(locales.In(a.language()).Cancel()); err != nil || a.serverDialog {
 					t.Fatalf("cancel behavior changed during %s: %v", state, err)
 				}
 			})

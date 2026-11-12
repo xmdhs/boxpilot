@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -16,28 +17,28 @@ var cardIDs = []string{"upload", "download", "status", "connections", "mode"}
 func (a *App) cardTitle(id string) string {
 	switch id {
 	case "upload":
-		return a.t("上传", "Upload")
+		return locales.In(a.language()).Upload()
 	case "download":
-		return a.t("下载", "Download")
+		return locales.In(a.language()).Download()
 	case "status":
-		return a.t("状态", "Status")
+		return locales.In(a.language()).Status()
 	case "connections":
-		return a.t("连接", "Connections")
+		return locales.In(a.language()).Connections()
 	case "mode":
-		return a.t("模式", "Mode")
+		return locales.In(a.language()).Mode()
 	}
 	return id
 }
 func (a *App) overview(c *ui.Context) {
-	a.pageTitle(c, "概述", "Overview", func() {
-		a.iconButton(c, "manage-cards", a.t("仪表项目", "Dashboard Items"), "⚙", func() { a.cardDialog = true })
+	a.pageTitle(c, locales.In(a.language()).Overview(), func() {
+		a.iconButton(c, "manage-cards", locales.In(a.language()).DashboardItems(), "⚙", func() { a.cardDialog = true })
 	})
 	if len(a.settings.Servers) == 0 && len(a.profiles) == 0 {
-		a.card(c, a.t("开始使用 BoxPilot", "Get started with BoxPilot"), func() {
-			ui.Text(c, a.t("选择一种方式连接 sing-box。设置远程服务器，或使用本机核心。", "Choose a way to connect to sing-box: add a remote server or set up a local core.")).TextColor(a.palette.muted).FillWidth()
+		a.card(c, locales.In(a.language()).GetStartedWithBoxPilot(), func() {
+			ui.Text(c, locales.In(a.language()).ChooseAWayToConnectToSingBoxAddARemoteServerOrSetUpALocalCore()).TextColor(a.palette.muted).FillWidth()
 			ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-				ui.PrimaryButton(c, a.t("连接远程服务器", "Connect to a remote server")).OnClick(func() { a.editServer("") })
-				ui.Button(c, a.t("使用本机核心", "Set up a local core")).OnClick(func() { a.page = "core" })
+				ui.PrimaryButton(c, locales.In(a.language()).ConnectToARemoteServer()).OnClick(func() { a.editServer("") })
+				ui.Button(c, locales.In(a.language()).SetUpALocalCore()).OnClick(func() { a.page = "core" })
 			})
 		})
 		return
@@ -45,29 +46,29 @@ func (a *App) overview(c *ui.Context) {
 	if a.client == nil {
 		a.card(c, "", func() {
 			ui.Row(c).Gap(10).Wrap().Children(func() {
-				ui.PrimaryButton(c, a.t("核心", "Core")).OnClick(func() { a.page = "core" })
-				ui.Button(c, a.t("连接", "Connect")).OnClick(func() { a.editServer("") })
+				ui.PrimaryButton(c, locales.In(a.language()).Core()).OnClick(func() { a.page = "core" })
+				ui.Button(c, locales.In(a.language()).Connect()).OnClick(func() { a.editServer("") })
 			})
 		})
 		return
 	}
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).Gap(18).FillWidth().Children(func() {
-			statusLabel := a.t("服务未启动", "Service not started")
+			statusLabel := locales.In(a.language()).ServiceNotStarted()
 			switch a.snapshot.ServiceStatus.GetStatus() {
 			case daemon.ServiceStatus_STARTING:
-				statusLabel = a.t("服务启动中...", "Service starting...")
+				statusLabel = locales.In(a.language()).ServiceStarting()
 			case daemon.ServiceStatus_STARTED:
-				statusLabel = a.t("服务正在运行", "Service is Running")
+				statusLabel = locales.In(a.language()).ServiceIsRunning()
 			case daemon.ServiceStatus_STOPPING:
-				statusLabel = a.t("服务停止中...", "Service stopping...")
+				statusLabel = locales.In(a.language()).ServiceStopping()
 			case daemon.ServiceStatus_FATAL:
-				statusLabel = a.t("服务启动失败", "Service failed to start")
+				statusLabel = locales.In(a.language()).ServiceFailedToStart()
 			}
 			ui.Row(c).Gap(12).Wrap().AlignItems(ui.Center).Children(func() {
 				a.pill(c, statusLabel, a.statusColor(a.snapshot.Phase))
 				if a.snapshot.StartedAt > 0 {
-					a.label(c, a.t("运行时间", "Uptime")+" "+model.FormatDuration(time.Since(time.UnixMilli(a.snapshot.StartedAt))))
+					a.label(c, locales.In(a.language()).Uptime()+" "+model.FormatDuration(time.Since(time.UnixMilli(a.snapshot.StartedAt))))
 					c.After(time.Second)
 				}
 				ui.Spacer(c)
@@ -107,11 +108,11 @@ func (a *App) overview(c *ui.Context) {
 							a.label(c, sub).Font("monospace")
 							a.sparkline(c, history)
 						case "status":
-							a.line(c, a.t("内存", "Memory"), model.FormatMemory(s.GetMemory()))
+							a.line(c, locales.In(a.language()).Memory(), model.FormatMemory(s.GetMemory()))
 							a.line(c, "Goroutines", fmt.Sprint(s.GetGoroutines()))
 						case "connections":
-							a.line(c, a.t("入站", "Inbound"), fmt.Sprint(s.GetConnectionsIn()))
-							a.line(c, a.t("出站", "Outbound"), fmt.Sprint(s.GetConnectionsOut()))
+							a.line(c, locales.In(a.language()).Inbound(), fmt.Sprint(s.GetConnectionsIn()))
+							a.line(c, locales.In(a.language()).Outbound(), fmt.Sprint(s.GetConnectionsOut()))
 						case "mode":
 							modes := a.snapshot.Modes
 							selected := 0
@@ -122,20 +123,20 @@ func (a *App) overview(c *ui.Context) {
 								}
 							}
 							if len(modes) > 1 && len(modes) <= 3 {
-								if ui.Segmented(c.Key("mode-segmented"), &selected, modes...).FillWidth().FillEqually().Label(a.t("Clash 模式", "Clash Mode")).Changed() {
+								if ui.Segmented(c.Key("mode-segmented"), &selected, modes...).FillWidth().FillEqually().Label(locales.In(a.language()).ClashMode()).Changed() {
 									next := modes[selected]
 									a.rpc("mode", func(ctx context.Context, client *api.Client) error { return client.SetClashMode(ctx, next) })
 								}
 							} else if len(modes) > 3 {
 								mode := a.snapshot.CurrentMode
-								if ui.Select(c.Key("mode-select"), &mode, modes).FillWidth().Label(a.t("Clash 模式", "Clash Mode")).Changed() {
+								if ui.Select(c.Key("mode-select"), &mode, modes).FillWidth().Label(locales.In(a.language()).ClashMode()).Changed() {
 									next := mode
 									a.rpc("mode", func(ctx context.Context, client *api.Client) error { return client.SetClashMode(ctx, next) })
 								}
 							}
 						}
 					})
-					card.Label(a.t("仪表卡片", "Dashboard card") + ": " + a.cardTitle(id)).Basis(overviewCardWidth).Grow(1).MinWidth(0)
+					card.Label(locales.In(a.language()).DashboardCard() + ": " + a.cardTitle(id)).Basis(overviewCardWidth).Grow(1).MinWidth(0)
 					if id == "mode" {
 						card.BasisPercent(100)
 					}
@@ -151,7 +152,7 @@ func (a *App) cardManager(c *ui.Context) {
 		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(14)
-		ui.Text(c, a.t("仪表项目", "Dashboard Items")).FontSize(20).Bold()
+		ui.Text(c, locales.In(a.language()).DashboardItems()).FontSize(20).Bold()
 		order := a.settings.Cards
 		if len(order) == 0 {
 			order = append([]string(nil), cardIDs...)
@@ -191,13 +192,13 @@ func (a *App) cardManager(c *ui.Context) {
 			})
 		}
 		ui.Row(c).Gap(10).FillWidth().Children(func() {
-			ui.Button(c, a.t("重置", "Reset")).OnClick(func() {
+			ui.Button(c, locales.In(a.language()).Reset()).OnClick(func() {
 				a.settings.Cards = append([]string(nil), cardIDs...)
 				a.settings.DisabledCards = nil
 				a.saveSettings()
 			})
 			ui.Spacer(c)
-			ui.PrimaryButton(c, a.t("完成", "Done")).OnClick(func() { a.cardDialog = false })
+			ui.PrimaryButton(c, locales.In(a.language()).Done()).OnClick(func() { a.cardDialog = false })
 		})
 	})
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"strings"
 	"testing"
 
@@ -28,15 +29,15 @@ func TestNarrowPageActionsAndConnectionFilters(t *testing.T) {
 				a.settings.Language = language
 				a.page = "logs"
 				tt := ui.NewTester(a.view, width, 640)
-				for _, name := range []string{a.t("暂停更新", "Pause updates"), a.t("复制日志", "Copy logs"), a.t("清除日志", "Clear Logs")} {
+				for _, name := range []string{locales.In(a.language()).PauseUpdates(), locales.In(a.language()).CopyLogs(), locales.In(a.language()).ClearLogs()} {
 					layoutControl(t, tt, ui.RoleButton, name, float32(width), 640)
 				}
-				layoutControl(t, tt, ui.RolePopUpButton, a.t("服务器", "Servers"), float32(width), 640)
+				layoutControl(t, tt, ui.RolePopUpButton, locales.In(a.language()).Servers(), float32(width), 640)
 				a.page = "connections"
 				tt.Frame()
-				search := layoutControl(t, tt, ui.RoleTextField, a.t("搜索", "Search"), float32(width), 640)
-				filter := layoutControl(t, tt, ui.RolePopUpButton, a.t("状态", "State"), float32(width), 640)
-				layoutControl(t, tt, ui.RolePopUpButton, a.t("排序", "Sort By"), float32(width), 640)
+				search := layoutControl(t, tt, ui.RoleTextField, locales.In(a.language()).Search(), float32(width), 640)
+				filter := layoutControl(t, tt, ui.RolePopUpButton, locales.In(a.language()).State(), float32(width), 640)
+				layoutControl(t, tt, ui.RolePopUpButton, locales.In(a.language()).SortBy(), float32(width), 640)
 				if narrowPageWidth := float32(width) - 2*pagePadding; width > int(compactBreakpoint) {
 					narrowPageWidth -= sidebarWidth
 					if narrowPageWidth < actionBreakpoint && filter.Bounds.Y < search.Bounds.Y+search.Bounds.H {
@@ -61,8 +62,8 @@ func TestOverviewOnboardingShowsOnlyWhenNoServersOrProfiles(t *testing.T) {
 					a.profiles = nil
 					a.page = "overview"
 					tt := ui.NewTester(a.view, width, 640)
-					remote := a.t("连接远程服务器", "Connect to a remote server")
-					local := a.t("使用本机核心", "Set up a local core")
+					remote := locales.In(a.language()).ConnectToARemoteServer()
+					local := locales.In(a.language()).SetUpALocalCore()
 					layoutControl(t, tt, ui.RoleButton, remote, float32(width), 640)
 					layoutControl(t, tt, ui.RoleButton, local, float32(width), 640)
 					if err := tt.Click(remote); err != nil || !a.serverDialog {
@@ -87,7 +88,7 @@ func TestOverviewOnboardingShowsOnlyWhenNoServersOrProfiles(t *testing.T) {
 			a.profiles = []core.Profile{{ID: "local", Name: "Local", Type: "local"}}
 		}
 		tt := ui.NewTester(a.view, 800, 640)
-		if tt.HasText(a.t("开始使用 BoxPilot", "Get started with BoxPilot")) {
+		if tt.HasText(locales.In(a.language()).GetStartedWithBoxPilot()) {
 			t.Fatalf("onboarding shown although a %s configuration exists", configured)
 		}
 	}
@@ -152,8 +153,8 @@ func TestRemoteProfileDialogExplainsFieldsAndFitsContent(t *testing.T) {
 		t.Fatalf("remote profile dialog should fit its contents: %+v", dialog.Bounds)
 	}
 	for _, label := range []string{
-		a.t("本地显示名称", "Local display name"),
-		a.t("远程配置 URL", "Remote profile URL"),
+		locales.In(a.language()).LocalDisplayName(),
+		locales.In(a.language()).RemoteProfileURL(),
 	} {
 		if !tt.HasText(label) {
 			t.Fatalf("remote profile field description is not visible: %q", label)
@@ -177,7 +178,7 @@ func TestProfileSelectionDoesNotChangeRunningProfile(t *testing.T) {
 					}
 				})
 			}, 480, 600)
-			selectName := a.t("选择配置", "Select Profile") + ": Next config"
+			selectName := locales.In(a.language()).SelectProfile() + ": Next config"
 			if err := tt.Click(selectName); err != nil {
 				t.Fatal(err)
 			}
@@ -187,23 +188,23 @@ func TestProfileSelectionDoesNotChangeRunningProfile(t *testing.T) {
 			if a.errorOpen {
 				t.Fatal("selecting a profile displayed a notification")
 			}
-			if !tt.HasText(a.t("运行中", "Running")) || !tt.HasText(a.t("已选择 · 下次启动生效", "Selected · next start")) {
+			if !tt.HasText(locales.In(a.language()).Running()) || !tt.HasText(locales.In(a.language()).SelectedNextStart()) {
 				t.Fatal("running and pending selections are not distinguished")
 			}
 			for _, p := range a.profiles {
-				layoutControl(t, tt, ui.RoleMenuButton, a.t("配置操作", "Profile actions")+": "+p.Name, 480, 600)
+				layoutControl(t, tt, ui.RoleMenuButton, locales.In(a.language()).ProfileActions()+": "+p.Name, 480, 600)
 			}
-			if err := tt.Click(a.t("配置操作", "Profile actions") + ": Running config"); err != nil {
+			if err := tt.Click(locales.In(a.language()).ProfileActions() + ": Running config"); err != nil {
 				t.Fatal(err)
 			}
-			if err := tt.ChooseMenuItem(a.t("删除配置", "Delete Profile")); err == nil {
+			if err := tt.ChooseMenuItem(locales.In(a.language()).DeleteProfile()); err == nil {
 				t.Fatal("running configuration can be deleted")
 			}
 			tt.CloseMenu()
-			if err := tt.Click(a.t("配置操作", "Profile actions") + ": Next config"); err != nil {
+			if err := tt.Click(locales.In(a.language()).ProfileActions() + ": Next config"); err != nil {
 				t.Fatal(err)
 			}
-			if err := tt.ChooseMenuItem(a.t("删除配置", "Delete Profile")); err != nil {
+			if err := tt.ChooseMenuItem(locales.In(a.language()).DeleteProfile()); err != nil {
 				t.Fatal(err)
 			}
 			if !a.confirmOpen || a.confirmMessage != "Next config" {

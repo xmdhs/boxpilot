@@ -2,13 +2,36 @@ package app
 
 import (
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
-var pages = []struct{ id, zh, en, icon string }{{"overview", "概述", "Overview", "dashboard"}, {"groups", "组", "Groups", "folder"}, {"connections", "连接", "Connections", "swap_vert"}, {"logs", "日志", "Logs", "text_snippet"}, {"tools", "工具", "Tools", "terminal"}, {"settings", "设置", "Settings", "settings"}, {"core", "核心", "Core", "memory"}}
+var pages = []struct{ id, key, icon string }{{"overview", "overview", "dashboard"}, {"groups", "groups", "folder"}, {"connections", "connections", "swap_vert"}, {"logs", "logs", "text_snippet"}, {"tools", "tools", "terminal"}, {"settings", "settings", "settings"}, {"core", "core", "memory"}}
+
+func pageLabel(locale, key string) string {
+	m := locales.In(locale)
+	switch key {
+	case "overview":
+		return m.Overview()
+	case "groups":
+		return m.Groups()
+	case "connections":
+		return m.Connections()
+	case "logs":
+		return m.Logs()
+	case "tools":
+		return m.Tools()
+	case "settings":
+		return m.Settings()
+	case "core":
+		return m.Core()
+	default:
+		return key
+	}
+}
 
 func (a *App) view(c *ui.Context) {
 	dark := c.Theme().Dark
@@ -63,7 +86,7 @@ func (a *App) view(c *ui.Context) {
 		ui.Overlay(c, func() {
 			ui.Column(c).Fill().Background(a.palette.bg.Alpha(.95)).Modal().Center().Gap(12).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, a.t("服务停止中...", "Service stopping..."))
+				ui.Text(c, locales.In(a.language()).ServiceStopping())
 			})
 		})
 	}
@@ -77,7 +100,7 @@ func (a *App) sidebar(c *ui.Context) {
 		})
 		for _, page := range pages {
 			page := page
-			b := ui.ButtonBase(c.Key(page.id)).FillWidth().Height(38).Radius(10).PaddingX(14).Label(a.t(page.zh, page.en)).Transition(interactionTransition)
+			b := ui.ButtonBase(c.Key(page.id)).FillWidth().Height(38).Radius(10).PaddingX(14).Label(pageLabel(a.language(), page.key)).Transition(interactionTransition)
 			color := p.muted
 			if a.page == page.id {
 				b.Background(p.soft)
@@ -87,7 +110,7 @@ func (a *App) sidebar(c *ui.Context) {
 			}
 			b.TextColor(color).Children(func() {
 				ui.Icon(c, icons[page.icon]).Size(17, 17)
-				ui.Text(c, a.t(page.zh, page.en)).FontSize(13).FontWeight(500).Grow(1)
+				ui.Text(c, pageLabel(a.language(), page.key)).FontSize(13).FontWeight(500).Grow(1)
 			})
 			b.Gap(12).OnClick(func() { a.page = page.id; a.compactMenu = false })
 		}
@@ -100,7 +123,7 @@ func (a *App) sidebar(c *ui.Context) {
 					a.label(c, a.snapshot.Version).FontSize(10)
 				}
 			})
-			ui.Button(c, a.t("退出", "Quit")).FillWidth().OnClick(mygo.App.Quit)
+			ui.Button(c, locales.In(a.language()).Quit()).FillWidth().OnClick(mygo.App.Quit)
 		})
 	})
 }
@@ -108,9 +131,9 @@ func (a *App) sidebar(c *ui.Context) {
 func (a *App) toolbar(c *ui.Context, compact bool) {
 	ui.Row(c).FillWidth().Height(58).PaddingX(20).Gap(12).AlignItems(ui.Center).Background(a.palette.bg).BorderWidth(0, 0, 1, 0).BorderColor(a.palette.border).Children(func() {
 		if compact {
-			a.iconButton(c, "navigation", a.t("切换导航", "Toggle navigation"), "☰", func() { a.compactMenu = !a.compactMenu })
+			a.iconButton(c, "navigation", locales.In(a.language()).ToggleNavigation(), "☰", func() { a.compactMenu = !a.compactMenu })
 		}
-		choices := []string{a.t("本机", "This Computer")}
+		choices := []string{locales.In(a.language()).ThisComputer()}
 		ids := []string{localID}
 		for _, s := range a.settings.Servers {
 			choices = append(choices, s.Name+" · "+s.ID[:min(6, len(s.ID))])
@@ -122,7 +145,7 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 				choice = choices[i]
 			}
 		}
-		if ui.Select(c.Key("active-server"), &choice, choices).Grow(1).MinWidth(100).MaxWidth(230).Label(a.t("服务器", "Servers")).Changed() {
+		if ui.Select(c.Key("active-server"), &choice, choices).Grow(1).MinWidth(100).MaxWidth(230).Label(locales.In(a.language()).Servers()).Changed() {
 			for i, label := range choices {
 				if label == choice {
 					a.activate(ids[i])
@@ -132,20 +155,20 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 		}
 		ui.Spacer(c)
 		if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
-			label := a.t("启动", "Start")
+			label := locales.In(a.language()).Start()
 			if a.coreState.Phase == "running" {
-				label = a.t("停止", "Stop")
+				label = locales.In(a.language()).Stop()
 			}
 			ui.Button(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"]).OnClick(a.toggleCore)
 		} else {
-			a.iconButton(c, "reconnect", a.t("重试", "Retry"), "↻", func() { a.activate(a.settings.ActiveID) })
+			a.iconButton(c, "reconnect", locales.In(a.language()).Retry(), "↻", func() { a.activate(a.settings.ActiveID) })
 		}
-		a.iconButton(c, "add-server", a.t("新建服务器", "New Server"), "+", func() { a.editServer("") })
+		a.iconButton(c, "add-server", locales.In(a.language()).NewServer(), "+", func() { a.editServer("") })
 	})
 }
 func (a *App) activeName() string {
 	if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
-		return a.t("本机", "This Computer")
+		return locales.In(a.language()).ThisComputer()
 	}
 	for _, s := range a.settings.Servers {
 		if s.ID == a.settings.ActiveID {
@@ -157,13 +180,13 @@ func (a *App) activeName() string {
 func (a *App) phaseLabel() string {
 	switch a.snapshot.Phase {
 	case "active":
-		return a.t("已连接", "Connected")
+		return locales.In(a.language()).Connected()
 	case "connecting":
-		return a.t("连接中...", "Connecting...")
+		return locales.In(a.language()).Connecting()
 	case "error":
-		return a.t("连接失败", "Connection failed")
+		return locales.In(a.language()).ConnectionFailed()
 	}
-	return a.t("不可用", "Unavailable")
+	return locales.In(a.language()).Unavailable()
 }
 func (a *App) streamBanner(c *ui.Context) {
 	if a.snapshot.Error != "" {
@@ -172,21 +195,21 @@ func (a *App) streamBanner(c *ui.Context) {
 	if a.snapshot.Phase == "connecting" {
 		ui.Row(c).Gap(10).Children(func() {
 			ui.Spinner(c).Size(15, 15)
-			a.label(c, a.t("连接中...", "Connecting..."))
+			a.label(c, locales.In(a.language()).Connecting())
 		})
 	}
 }
-func (a *App) pageTitle(c *ui.Context, zh, en string, actions func()) {
+func (a *App) pageTitle(c *ui.Context, title string, actions func()) {
 	if narrowPage(c) {
 		ui.Column(c).FillWidth().Gap(10).Children(func() {
-			a.heading(c, zh, en)
+			a.heading(c, title)
 			if actions != nil {
 				ui.Row(c).FillWidth().Gap(8).Wrap().Children(actions)
 			}
 		})
 	} else {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-			a.heading(c, zh, en)
+			a.heading(c, title)
 			ui.Spacer(c)
 			if actions != nil {
 				ui.Row(c).Gap(8).Wrap().Children(actions)
@@ -204,11 +227,11 @@ func (a *App) dialogs(c *ui.Context) {
 		animateDialog(back, panel)
 		back.Background(ui.RGBA(0, 0, 0, .32))
 		panel.Width(480).MaxWidthPercent(94).Padding(24).Radius(20).Background(a.palette.card).Gap(16)
-		ui.Text(c, a.t("错误", "Error")).FontSize(20).Bold()
+		ui.Text(c, locales.In(a.language()).Error()).FontSize(20).Bold()
 		ui.Scroll(c).MaxHeight(300).Children(func() { ui.Text(c, a.errorText).Selectable().Font("monospace").FontSize(12) })
 		ui.Row(c).Gap(10).Justify(ui.End).Children(func() {
-			ui.Button(c, a.t("复制", "Copy")).OnClick(func() { services.WriteClipboard(a.errorText) })
-			ui.PrimaryButton(c, a.t("好", "Ok")).OnClick(func() { a.errorOpen = false })
+			ui.Button(c, locales.In(a.language()).Copy()).OnClick(func() { services.WriteClipboard(a.errorText) })
+			ui.PrimaryButton(c, locales.In(a.language()).Ok()).OnClick(func() { a.errorOpen = false })
 		})
 	})
 	ui.DialogBase(c.Key("confirm-dialog"), &a.confirmOpen, func(back, panel ui.Element) {
@@ -218,7 +241,7 @@ func (a *App) dialogs(c *ui.Context) {
 		ui.Text(c, a.confirmTitle).FontSize(20).Bold()
 		ui.Text(c, a.confirmMessage)
 		ui.Row(c).Justify(ui.End).Gap(10).Children(func() {
-			ui.Button(c, a.t("取消", "Cancel")).OnClick(func() { a.confirmOpen = false })
+			ui.Button(c, locales.In(a.language()).Cancel()).OnClick(func() { a.confirmOpen = false })
 			ui.PrimaryButton(c, a.confirmButtonLabel()).OnClick(func() {
 				action := a.confirmAction
 				a.confirmOpen = false

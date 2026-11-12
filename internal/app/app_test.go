@@ -38,7 +38,7 @@ func TestAllNativePages(t *testing.T) {
 			a := fixture(t)
 			a.page = page.id
 			tt := ui.NewTester(a.view, 1140, 780)
-			if !tt.HasText(page.en) {
+			if !tt.HasText(pageLabel(a.language(), page.key)) {
 				t.Fatalf("page %s missing: %q", page.id, tt.Texts())
 			}
 			if tt.Image().Bounds().Dx() != 1140 {

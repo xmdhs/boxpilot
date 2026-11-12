@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
@@ -11,24 +12,24 @@ import (
 )
 
 func (a *App) tools(c *ui.Context) {
-	a.pageTitle(c, "工具", "Tools", nil)
+	a.pageTitle(c, locales.In(a.language()).Tools(), nil)
 	ui.Row(c).Gap(10).Children(func() {
-		ui.Button(c, a.t("网络质量", "Network Quality")).OnClick(func() { a.tool = "quality" })
-		ui.Button(c, a.t("STUN 测试", "STUN Test")).OnClick(func() { a.tool = "stun" })
+		ui.Button(c, locales.In(a.language()).NetworkQuality()).OnClick(func() { a.tool = "quality" })
+		ui.Button(c, locales.In(a.language()).StunTest()).OnClick(func() { a.tool = "stun" })
 	})
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
-			a.card(c, a.t("测试配置", "Test configuration"), func() {
+			a.card(c, locales.In(a.language()).TestConfiguration(), func() {
 				if a.tool == "quality" {
-					a.field(c, a.t("配置 URL", "Configuration URL"), func() {
-						ui.TextInput(c.Key("quality-url"), &a.toolURL).FillWidth().Label(a.t("配置 URL", "Configuration URL"))
+					a.field(c, locales.In(a.language()).ConfigurationURL(), func() {
+						ui.TextInput(c.Key("quality-url"), &a.toolURL).FillWidth().Label(locales.In(a.language()).ConfigurationURL())
 					})
 					ui.Row(c).Gap(16).Wrap().Children(func() {
 						runtimeValues := []string{"20", "30", "60"}
 						runtimeOptions := []string{
-							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "20"),
-							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "30"),
-							fmt.Sprintf(a.t("%s 秒", "%s seconds"), "60"),
+							locales.In(a.language()).DurationSeconds("20"),
+							locales.In(a.language()).DurationSeconds("30"),
+							locales.In(a.language()).DurationSeconds("60"),
 						}
 						runtimeOption := runtimeOptions[0]
 						for i, value := range runtimeValues {
@@ -36,7 +37,7 @@ func (a *App) tools(c *ui.Context) {
 								runtimeOption = runtimeOptions[i]
 							}
 						}
-						a.field(c, a.t("最大运行时间", "Max runtime"), func() {
+						a.field(c, locales.In(a.language()).MaxRuntime(), func() {
 							if ui.Select(c, &runtimeOption, runtimeOptions).Width(100).Changed() {
 								for i, option := range runtimeOptions {
 									if runtimeOption == option {
@@ -46,17 +47,17 @@ func (a *App) tools(c *ui.Context) {
 								}
 							}
 						})
-						ui.Checkbox(c, &a.toolSerial, a.t("串行", "Serial"))
+						ui.Checkbox(c, &a.toolSerial, locales.In(a.language()).Serial())
 						ui.Checkbox(c, &a.toolHTTP3, "HTTP/3")
 					})
 				} else {
-					a.field(c, a.t("服务器", "Server"), func() {
-						ui.TextInput(c.Key("stun-server"), &a.toolServer).FillWidth().Label(a.t("服务器", "Server"))
+					a.field(c, locales.In(a.language()).Server(), func() {
+						ui.TextInput(c.Key("stun-server"), &a.toolServer).FillWidth().Label(locales.In(a.language()).Server())
 					})
 				}
-				a.field(c, a.t("出站", "Outbound"), func() {
+				a.field(c, locales.In(a.language()).Outbound(), func() {
 					outboundValues := []string{""}
-					outboundOptions := []string{a.t("默认", "Default")}
+					outboundOptions := []string{locales.In(a.language()).Default()}
 					for _, item := range a.snapshot.Outbounds {
 						outboundValues = append(outboundValues, item.GetTag())
 						outboundOptions = append(outboundOptions, item.GetTag())
@@ -67,7 +68,7 @@ func (a *App) tools(c *ui.Context) {
 							outboundOption = outboundOptions[i]
 						}
 					}
-					if ui.Select(c, &outboundOption, outboundOptions).FillWidth().Label(a.t("出站", "Outbound")).Changed() {
+					if ui.Select(c, &outboundOption, outboundOptions).FillWidth().Label(locales.In(a.language()).Outbound()).Changed() {
 						for i, option := range outboundOptions {
 							if outboundOption == option {
 								a.toolOutbound = outboundValues[i]
@@ -77,8 +78,8 @@ func (a *App) tools(c *ui.Context) {
 					}
 				})
 				ui.Row(c).Gap(10).Children(func() {
-					ui.PrimaryButton(c, a.t("开始测试", "Start test")).Disabled(a.client == nil || a.busy["tool"]).OnClick(a.startTool)
-					ui.Button(c, a.t("取消测试", "Cancel test")).Disabled(!a.busy["tool"]).OnClick(func() {
+					ui.PrimaryButton(c, locales.In(a.language()).StartTest()).Disabled(a.client == nil || a.busy["tool"]).OnClick(a.startTool)
+					ui.Button(c, locales.In(a.language()).CancelTest()).Disabled(!a.busy["tool"]).OnClick(func() {
 						if cancel := a.jobs["tool"]; cancel != nil {
 							cancel()
 						}
@@ -93,13 +94,13 @@ func (a *App) tools(c *ui.Context) {
 			}
 			if a.tool == "quality" && a.quality != nil {
 				p := a.quality
-				a.card(c, a.t("结果", "Results"), func() {
-					a.line(c, a.t("空闲延迟", "Idle latency"), fmt.Sprintf("%d ms", p.GetIdleLatencyMs()))
-					a.line(c, a.t("下载", "Download"), humanRate(p.GetDownloadCapacity()))
-					a.line(c, a.t("上传", "Upload"), humanRate(p.GetUploadCapacity()))
-					a.line(c, a.t("下载 RPM", "Download RPM"), fmt.Sprint(p.GetDownloadRPM()))
-					a.line(c, a.t("上传 RPM", "Upload RPM"), fmt.Sprint(p.GetUploadRPM()))
-					a.line(c, a.t("已用时间", "Elapsed"), fmt.Sprintf("%.1f s", float64(p.GetElapsedMs())/1000))
+				a.card(c, locales.In(a.language()).Results(), func() {
+					a.line(c, locales.In(a.language()).IdleLatency(), fmt.Sprintf("%d ms", p.GetIdleLatencyMs()))
+					a.line(c, locales.In(a.language()).Download(), humanRate(p.GetDownloadCapacity()))
+					a.line(c, locales.In(a.language()).Upload(), humanRate(p.GetUploadCapacity()))
+					a.line(c, locales.In(a.language()).DownloadRPM(), fmt.Sprint(p.GetDownloadRPM()))
+					a.line(c, locales.In(a.language()).UploadRPM(), fmt.Sprint(p.GetUploadRPM()))
+					a.line(c, locales.In(a.language()).Elapsed(), fmt.Sprintf("%.1f s", float64(p.GetElapsedMs())/1000))
 					if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)
 					}
@@ -107,13 +108,13 @@ func (a *App) tools(c *ui.Context) {
 			}
 			if a.tool == "stun" && a.stun != nil {
 				p := a.stun
-				a.card(c, a.t("结果", "Results"), func() {
-					a.line(c, a.t("外部地址", "External address"), p.GetExternalAddr())
-					a.line(c, a.t("延迟", "Latency"), fmt.Sprintf("%d ms", p.GetLatencyMs()))
-					a.line(c, a.t("NAT 映射", "NAT mapping"), natName(p.GetNatMapping()))
-					a.line(c, a.t("NAT 过滤", "NAT filtering"), natFilter(p.GetNatFiltering()))
+				a.card(c, locales.In(a.language()).Results(), func() {
+					a.line(c, locales.In(a.language()).ExternalAddress(), p.GetExternalAddr())
+					a.line(c, locales.In(a.language()).Latency(), fmt.Sprintf("%d ms", p.GetLatencyMs()))
+					a.line(c, locales.In(a.language()).NatMapping(), natName(p.GetNatMapping()))
+					a.line(c, locales.In(a.language()).NatFiltering(), natFilter(p.GetNatFiltering()))
 					if !p.GetNatTypeSupported() {
-						a.line(c, a.t("NAT 类型检测", "NAT type detection"), a.t("服务器不支持", "Not supported by server"))
+						a.line(c, locales.In(a.language()).NatTypeDetection(), locales.In(a.language()).NotSupportedByServer())
 					}
 					if p.GetError() != "" {
 						ui.Text(c, p.GetError()).TextColor(a.palette.danger)

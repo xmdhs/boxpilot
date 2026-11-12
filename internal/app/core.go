@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xmdhs/boxpilot/locales"
 	"os"
 	"strconv"
 	"strings"
@@ -15,23 +16,25 @@ import (
 )
 
 func (a *App) coreView(c *ui.Context) {
-	a.pageTitle(c, "核心", "Core", func() { ui.Button(c, a.t("刷新", "Refresh")).Disabled(a.busy["local-files"]).OnClick(a.refreshLocal) })
+	a.pageTitle(c, locales.In(a.language()).Core(), func() {
+		ui.Button(c, locales.In(a.language()).Refresh()).Disabled(a.busy["local-files"]).OnClick(a.refreshLocal)
+	})
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Gap(18).Children(func() {
 			if core.ElevatedCoreSupported() {
-				a.card(c, a.t("以管理员身份运行 sing-box", "Run sing-box as administrator"), func() {
+				a.card(c, locales.In(a.language()).RunSingBoxAsAdministrator(), func() {
 					enabled := a.settings.ElevateCore
-					if ui.Switch(c, &enabled).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.coreState.Phase == "running" || a.coreState.Phase == "starting").Label(a.t("以管理员身份运行 sing-box", "Run sing-box as administrator")).Changed() {
+					if ui.Switch(c, &enabled).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.coreState.Phase == "running" || a.coreState.Phase == "starting").Label(locales.In(a.language()).RunSingBoxAsAdministrator()).Changed() {
 						a.settings.ElevateCore = enabled
 						a.saveSettings()
 						a.replaceCoreController()
 					}
-					a.label(c, a.t("启动 sing-box 时会显示 Windows 用户帐户控制提示；停止时也会再次请求提权。BoxPilot 本身不会以管理员身份运行。", "Windows User Account Control asks for approval when sing-box starts and again when it stops. BoxPilot itself does not run as administrator."))
+					a.label(c, locales.In(a.language()).WindowsUserAccountControlAsksForApprovalWhenSingBoxStartsAndAgainWhenItStopsBoxPilotItselfDoesNotRunAsAdministrator())
 				})
 			}
 			if len(a.cpuCoreGroups) > 1 {
-				a.card(c, a.t("CPU 调度", "CPU Scheduling"), func() {
-					values := []string{a.t("自动（交由 Windows 调度）", "Automatic (let Windows schedule)")}
+				a.card(c, locales.In(a.language()).CpuScheduling(), func() {
+					values := []string{locales.In(a.language()).AutomaticLetWindowsSchedule()}
 					keys := []string{"auto"}
 					for _, group := range a.cpuCoreGroups {
 						values = append(values, a.cpuCoreGroupLabel(group))
@@ -44,7 +47,7 @@ func (a *App) coreView(c *ui.Context) {
 							break
 						}
 					}
-					if ui.Select(c, &selected, values).FillWidth().Label(a.t("核心类型", "Core type")).Changed() {
+					if ui.Select(c, &selected, values).FillWidth().Label(locales.In(a.language()).CoreType()).Changed() {
 						for i, value := range values {
 							if value == selected {
 								a.cpuCoreChoice = keys[i]
@@ -54,17 +57,17 @@ func (a *App) coreView(c *ui.Context) {
 							}
 						}
 					}
-					ui.PrimaryButton(c, a.t("应用到本机 sing-box", "Apply to local sing-box")).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
-					a.label(c, a.t("仅影响 BoxPilot 管理的本机进程。CPU Sets 是软性调度偏好，不保证严格绑定；选择会记忆，重启后自动应用。管理员模式下，应用 CPU Sets 会触发一次单独的 UAC 提权操作。", "Only affects the local process managed by BoxPilot. CPU Sets are a soft scheduling preference, not strict affinity; the choice is remembered and reapplied after restart. In administrator mode, applying CPU Sets uses a separate one-shot UAC-elevated action."))
+					ui.PrimaryButton(c, locales.In(a.language()).ApplyToLocalSingBox()).Disabled(a.busy["cpu-core-selection"] || a.coreState.Phase != "running").OnClick(a.applyCPUCoreChoice)
+					a.label(c, locales.In(a.language()).OnlyAffectsTheLocalProcessManagedByBoxPilotCPUSetsAreASoftSchedulingPreferenceNotStrictAffinityTheChoiceIsRememberedAndReappliedAfterRestartInAdministratorModeApplyingCPUSetsUsesASeparateOneShotUACElevatedAction())
 				})
 			}
-			a.card(c, a.t("服务", "Service"), func() {
+			a.card(c, locales.In(a.language()).Service(), func() {
 				a.pill(c, a.corePhase(), a.statusColor(a.coreState.Phase))
-				a.line(c, a.t("版本", "Version"), a.coreState.Version)
+				a.line(c, locales.In(a.language()).Version(), a.coreState.Version)
 				if a.coreState.Phase == "running" {
-					a.line(c, a.t("运行配置", "Running profile"), a.runningProfileName())
+					a.line(c, locales.In(a.language()).RunningProfile(), a.runningProfileName())
 					if a.coreProfileID != "" && a.settings.ProfileID != "" && a.settings.ProfileID != a.coreProfileID {
-						a.label(c, a.t("已选择其他配置；当前运行不变，下次启动时生效。", "Another profile is selected. The running core is unchanged until the next start."))
+						a.label(c, locales.In(a.language()).AnotherProfileIsSelectedTheRunningCoreIsUnchangedUntilTheNextStart())
 					}
 				}
 				if a.coreState.PID > 0 {
@@ -77,35 +80,35 @@ func (a *App) coreView(c *ui.Context) {
 					ui.Text(c, a.coreState.Error).TextColor(a.palette.danger).FontSize(12).Selectable()
 				}
 				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-					ui.PrimaryButton(c, a.t("启动", "Start")).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.busy["remote-profile-restart"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
-					ui.Button(c, a.t("停止", "Stop")).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
+					ui.PrimaryButton(c, locales.In(a.language()).Start()).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.busy["remote-profile-restart"] || a.busy["cpu-core-detection"] || a.coreState.Phase == "running" || a.closing).OnClick(func() { a.startCore(false) })
+					ui.Button(c, locales.In(a.language()).Stop()).Disabled(a.busy["core-stop"] || a.coreState.Phase == "stopped" || a.coreState.Phase == "").OnClick(a.stopCore)
 				})
-				a.label(c, a.t("仅管理本应用启动的进程。退出应用时停止；隐藏窗口时继续运行。", "Only child processes started here are managed. Quit stops the core; hiding keeps it running."))
+				a.label(c, locales.In(a.language()).OnlyChildProcessesStartedHereAreManagedQuitStopsTheCoreHidingKeepsItRunning())
 			})
 			a.coreManagementCard(c)
-			a.card(c, a.t("配置", "Profiles"), func() {
+			a.card(c, locales.In(a.language()).Profiles(), func() {
 				if len(a.profiles) == 0 {
-					a.label(c, a.t("尚无配置，请新建、导入或添加远程配置。", "No profiles yet. Create, import, or add a remote profile."))
+					a.label(c, locales.In(a.language()).NoProfilesYetCreateImportOrAddARemoteProfile())
 				}
 				for _, profile := range a.profiles {
 					a.profileRow(c, profile)
 				}
 				ui.Row(c).FillWidth().Gap(10).Wrap().Children(func() {
-					ui.Button(c, a.t("新建配置", "New Profile")).OnClick(func() {
+					ui.Button(c, locales.In(a.language()).NewProfile()).OnClick(func() {
 						a.profileID = ""
 						a.profileType = "local"
-						a.profileName = a.t("新建配置", "New Profile")
+						a.profileName = locales.In(a.language()).NewProfile()
 						a.profileRemoteURL = ""
 						a.profileContent = core.DefaultConfig()
 						a.profileDirty = false
 						a.profileEditor = true
 					})
-					ui.Button(c, a.t("远程", "Remote")).OnClick(func() { a.newRemoteProfile("", "") })
-					ui.Button(c, a.t("从文件导入", "Import from File")).OnClick(a.importProfile)
+					ui.Button(c, locales.In(a.language()).Remote()).OnClick(func() { a.newRemoteProfile("", "") })
+					ui.Button(c, locales.In(a.language()).ImportFromFile()).OnClick(a.importProfile)
 				})
 			})
 			if a.coreState.Output != "" {
-				a.card(c, a.t("日志", "Logs"), func() { ui.Text(c, a.coreState.Output).Font("monospace").FontSize(11).Selectable().MaxHeight(240) })
+				a.card(c, locales.In(a.language()).Logs(), func() { ui.Text(c, a.coreState.Output).Font("monospace").FontSize(11).Selectable().MaxHeight(240) })
 			}
 		})
 	})
@@ -117,7 +120,7 @@ func (a *App) coreDownloadProgress(c *ui.Context) {
 	}
 	ui.Progress(c, progress).FillWidth()
 	a.label(c, fmt.Sprintf("%d / %d bytes", a.downloadDone, a.downloadTotal))
-	ui.Button(c, a.t("取消下载", "Cancel download")).OnClick(func() {
+	ui.Button(c, locales.In(a.language()).CancelDownload()).OnClick(func() {
 		if cancel := a.jobs["install"]; cancel != nil {
 			cancel()
 		}
@@ -127,17 +130,17 @@ func (a *App) coreDownloadProgress(c *ui.Context) {
 func (a *App) corePhase() string {
 	switch a.coreState.Phase {
 	case "running":
-		return a.t("服务正在运行", "Service is Running")
+		return locales.In(a.language()).ServiceIsRunning()
 	case "starting":
-		return a.t("服务启动中...", "Service starting...")
+		return locales.In(a.language()).ServiceStarting()
 	case "checking":
-		return a.t("正在检查...", "Checking...")
+		return locales.In(a.language()).Checking()
 	case "stopping":
-		return a.t("服务停止中...", "Service stopping...")
+		return locales.In(a.language()).ServiceStopping()
 	case "error":
-		return a.t("错误", "Error")
+		return locales.In(a.language()).Error()
 	}
-	return a.t("服务未启动", "Service not started")
+	return locales.In(a.language()).ServiceNotStarted()
 }
 func (a *App) checkReleases() {
 	var releases []core.Release
@@ -159,7 +162,7 @@ func (a *App) installCore() {
 	for _, r := range a.releases {
 		label := r.Version
 		if r.Prerelease {
-			label += " (" + a.t("测试版", "Beta") + ")"
+			label += " (" + locales.In(a.language()).Beta() + ")"
 		}
 		if label == a.releaseChoice {
 			selected = r
@@ -255,7 +258,7 @@ func (a *App) importProfile() {
 			return err
 		}
 		if info.Size() > 8<<20 {
-			return errors.New("配置文件超过 8 MiB 限制")
+			return errors.New(locales.In(a.language()).ConfigurationFileTooLarge())
 		}
 		data, err := os.ReadFile(paths[0])
 		text = string(data)
@@ -270,7 +273,7 @@ func (a *App) importProfile() {
 func (a *App) openImportedProfile(text string) {
 	a.profileID = ""
 	a.profileType = "local"
-	a.profileName = a.t("导入配置", "Import Profile")
+	a.profileName = locales.In(a.language()).ImportProfile()
 	a.profileRemoteURL = ""
 	a.profileAutoUpdate = false
 	a.profileAutoUpdateInterval = ""
@@ -285,16 +288,16 @@ func (a *App) closeProfile() {
 		return
 	}
 	if a.profileDirty {
-		a.confirmWithButton(a.t("未保存的更改", "Unsaved Changes"), a.t("您有未保存的更改。要放弃它们吗？", "You have unsaved changes. Do you want to discard them?"), a.t("放弃", "Discard"), func() { a.profileEditor = false; a.profileDirty = false })
+		a.confirmWithButton(locales.In(a.language()).UnsavedChanges(), locales.In(a.language()).YouHaveUnsavedChangesDoYouWantToDiscardThem(), locales.In(a.language()).Discard(), func() { a.profileEditor = false; a.profileDirty = false })
 	} else {
 		a.profileEditor = false
 	}
 }
 func (a *App) profileForm(c *ui.Context) {
 	width, height := c.Size()
-	nameLabel := a.t("名称", "Name")
+	nameLabel := locales.In(a.language()).Name()
 	if a.profileType == "remote" {
-		nameLabel = a.t("本地显示名称", "Local display name")
+		nameLabel = locales.In(a.language()).LocalDisplayName()
 	}
 	dialog := ui.DialogBase(c, &a.profileEditor, func(back, panel ui.Element) {
 		animateDialog(back, panel)
@@ -304,58 +307,58 @@ func (a *App) profileForm(c *ui.Context) {
 			panel.Height(min(700, height-32))
 		}
 		ui.Row(c).FillWidth().Children(func() {
-			title := a.t("编辑内容", "Edit Content")
+			title := locales.In(a.language()).EditContent()
 			if a.profileType == "remote" {
-				title = a.t("编辑配置", "Edit Profile")
+				title = locales.In(a.language()).EditProfile()
 			}
 			ui.Text(c, title).FontSize(20).Bold().Grow(1)
-			a.iconButton(c, "close-editor", a.t("关闭", "Close"), "×", a.closeProfile)
+			a.iconButton(c, "close-editor", locales.In(a.language()).Close(), "×", a.closeProfile)
 		})
 		if a.profileType == "remote" {
 			a.field(c, nameLabel, func() {
-				if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Placeholder(a.t("留空时使用 URL 主机名", "Defaults to the URL hostname when empty")).Label(a.t("名称", "Name")).Changed() {
+				if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Placeholder(locales.In(a.language()).DefaultsToTheURLHostnameWhenEmpty()).Label(locales.In(a.language()).Name()).Changed() {
 					a.profileDirty = true
 				}
 			})
-			urlLabel := a.t("远程配置 URL", "Remote profile URL")
+			urlLabel := locales.In(a.language()).RemoteProfileURL()
 			a.field(c, urlLabel, func() {
-				if ui.TextInput(c.Key("profile-remote-url"), &a.profileRemoteURL).Disabled(a.busy["save-profile"]).FillWidth().Placeholder("https://example.com/config.json").Label(a.t("URL", "URL")).Changed() {
+				if ui.TextInput(c.Key("profile-remote-url"), &a.profileRemoteURL).Disabled(a.busy["save-profile"]).FillWidth().Placeholder("https://example.com/config.json").Label(locales.In(a.language()).Url()).Changed() {
 					a.profileDirty = true
 				}
 			})
 			autoUpdate := a.profileAutoUpdate
-			ui.Checkbox(c, &a.profileAutoUpdate, a.t("自动更新", "Auto Update"))
+			ui.Checkbox(c, &a.profileAutoUpdate, locales.In(a.language()).AutoUpdate())
 			if autoUpdate != a.profileAutoUpdate {
 				a.profileDirty = true
 			}
-			a.field(c, a.t("自动更新间隔", "Auto Update Interval"), func() {
-				if ui.TextInput(c.Key("profile-update-interval"), &a.profileAutoUpdateInterval).Disabled(a.busy["save-profile"] || !a.profileAutoUpdate).FillWidth().Placeholder(a.t("单位：分钟", "In Minutes")).Changed() {
+			a.field(c, locales.In(a.language()).AutoUpdateInterval(), func() {
+				if ui.TextInput(c.Key("profile-update-interval"), &a.profileAutoUpdateInterval).Disabled(a.busy["save-profile"] || !a.profileAutoUpdate).FillWidth().Placeholder(locales.In(a.language()).InMinutes()).Changed() {
 					a.profileDirty = true
 				}
 			})
 			if !a.profileLastUpdated.IsZero() {
-				a.line(c, a.t("最后更新", "Last Updated"), a.profileLastUpdated.Format("2006-01-02 15:04"))
+				a.line(c, locales.In(a.language()).LastUpdated(), a.profileLastUpdated.Format("2006-01-02 15:04"))
 			}
 		} else {
 			if ui.TextInput(c.Key("profile-name"), &a.profileName).Disabled(a.busy["save-profile"]).FillWidth().Label(nameLabel).Changed() {
 				a.profileDirty = true
 			}
-			if ui.TextArea(c.Key("profile-content-"+a.profileID), &a.profileContent).Disabled(a.busy["save-profile"]).Font("monospace").FontSize(12).Grow(1).FillWidth().Label(a.t("配置", "Configuration")).Changed() {
+			if ui.TextArea(c.Key("profile-content-"+a.profileID), &a.profileContent).Disabled(a.busy["save-profile"]).Font("monospace").FontSize(12).Grow(1).FillWidth().Label(locales.In(a.language()).Configuration()).Changed() {
 				a.profileDirty = true
 			}
-			a.label(c, a.t("配置可能修改 TUN / DNS / 路由 / 监听；本程序不会自动提权。", "Configuration may affect TUN, DNS, routing, and listeners."))
+			a.label(c, locales.In(a.language()).ConfigurationMayAffectTUNDNSRoutingAndListeners())
 		}
 		ui.Row(c).FillWidth().Gap(10).Children(func() {
 			if a.profileType != "remote" {
-				ui.Button(c, a.t("校验配置", "Check configuration")).Disabled(a.busy["check-profile"] || a.settings.CorePath == "").OnClick(a.checkProfile)
+				ui.Button(c, locales.In(a.language()).CheckConfiguration()).Disabled(a.busy["check-profile"] || a.settings.CorePath == "").OnClick(a.checkProfile)
 			}
 			ui.Spacer(c)
-			ui.Button(c, a.t("取消", "Cancel")).OnClick(a.closeProfile)
+			ui.Button(c, locales.In(a.language()).Cancel()).OnClick(a.closeProfile)
 			saveAction := a.saveProfile
 			if a.profileType == "remote" {
 				saveAction = a.saveRemoteProfile
 			}
-			ui.PrimaryButton(c, a.t("保存", "Save")).Disabled(a.busy["save-profile"]).OnClick(saveAction)
+			ui.PrimaryButton(c, locales.In(a.language()).Save()).Disabled(a.busy["save-profile"]).OnClick(saveAction)
 		})
 	})
 	if dialog.Dismissed() {
@@ -371,7 +374,7 @@ func (a *App) profileForm(c *ui.Context) {
 func (a *App) saveProfile() {
 	id, name, text := a.profileID, tidy(a.profileName), a.profileContent
 	if name == "" {
-		a.fail(errors.New(a.t("必填", "Required")))
+		a.fail(errors.New(locales.In(a.language()).Required()))
 		return
 	}
 	var profile core.Profile
