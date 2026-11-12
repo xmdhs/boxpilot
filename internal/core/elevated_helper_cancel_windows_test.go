@@ -4,8 +4,10 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -40,5 +42,27 @@ func TestElevatedStartAlreadyCanceledNeverCallsShell(t *testing.T) {
 	proc, err := startElevatedCoreProcess(ctx, "must-not-start.exe", nil, t.TempDir(), nil)
 	if proc != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("already canceled elevated start: %v %v", proc, err)
+	}
+}
+
+func TestPublishElevatedCoreStartResult(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "startup.json")
+	want := elevatedCoreStartResult{PID: 1234, Creation: 5678}
+	if err := publishElevatedCoreStartResult(path, want); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got elevatedCoreStartResult
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("published result = %+v, want %+v", got, want)
+	}
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary result still exists: %v", err)
 	}
 }

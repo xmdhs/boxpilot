@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -169,11 +170,7 @@ func runElevatedCoreSupervisor(payload elevatedCoreStartPayload) (int, error) {
 		_ = cmd.Wait()
 		return 1, fmt.Errorf("read elevated sing-box process identity: %w", err)
 	}
-	result, err := json.Marshal(elevatedCoreStartResult{PID: cmd.Process.Pid, Creation: creation})
-	if err == nil {
-		err = os.WriteFile(payload.Result, result, 0600)
-	}
-	if err != nil {
+	if err = publishElevatedCoreStartResult(payload.Result, elevatedCoreStartResult{PID: cmd.Process.Pid, Creation: creation}); err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		return 1, fmt.Errorf("publish elevated sing-box process identity: %w", err)
@@ -186,6 +183,35 @@ func runElevatedCoreSupervisor(payload elevatedCoreStartPayload) (int, error) {
 		return 1, err
 	}
 	return 0, nil
+}
+
+func publishElevatedCoreStartResult(path string, result elevatedCoreStartResult) error {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	tempPath := path + ".tmp"
+	file, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	n, writeErr := file.Write(data)
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil || n != len(data) {
+		_ = os.Remove(tempPath)
+		if writeErr != nil {
+			return writeErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		return io.ErrShortWrite
+	}
+	if err = os.Rename(tempPath, path); err != nil {
+		_ = os.Remove(tempPath)
+		return err
+	}
+	return nil
 }
 
 func startElevatedCoreProcess(ctx context.Context, path string, args []string, dir string, cpuSetIDs []uint32) (managedProcess, error) {
@@ -208,7 +234,11 @@ func startElevatedCoreProcess(ctx context.Context, path string, args []string, d
 		_ = os.Remove(resultPath)
 		return nil, err
 	}
+	if err = os.Remove(resultPath); err != nil {
+		return nil, fmt.Errorf("prepare elevated startup result: %w", err)
+	}
 	defer os.Remove(resultPath)
+	defer os.Remove(resultPath + ".tmp")
 	payload := elevatedCoreStartPayload{Binary: binary, Args: args, Dir: dir, CPUSetIDs: append([]uint32(nil), cpuSetIDs...), Result: resultPath}
 	data, err := json.Marshal(payload)
 	if err != nil {
