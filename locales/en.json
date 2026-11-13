@@ -742,6 +742,9 @@
   "@warningHTTPMayExposeYourSecretToNetworkObservers": {
     "description": "BoxPilot user-interface text."
   },
+  "@tunRequiresAdministratorMode": {
+    "description": "BoxPilot user-interface text."
+  },
   "@windowsUserAccountControlAsksForApprovalWhenSingBoxStartsAndAgainWhenItStopsBoxPilotItselfDoesNotRunAsAdministrator": {
     "description": "BoxPilot user-interface text."
   },
@@ -973,6 +976,7 @@
   "toggleNavigation": "Toggle navigation",
   "tools": "Tools",
   "traffic": "Traffic",
+  "tunRequiresAdministratorMode": "The selected configuration contains a TUN inbound. On Windows, enable “Run sing-box as administrator” in Core settings before starting.",
   "unavailable": "Unavailable",
   "unsavedChanges": "Unsaved Changes",
   "updateProfile": "Update Profile",

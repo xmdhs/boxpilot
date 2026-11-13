@@ -222,6 +222,7 @@
   "toggleNavigation": "切换导航",
   "tools": "工具",
   "traffic": "流量",
+  "tunRequiresAdministratorMode": "当前配置包含 TUN 入站，Windows 下需要开启“以管理员身份运行 sing-box”。请前往核心设置开启后再启动。",
   "unavailable": "不可用",
   "unsavedChanges": "未保存的更改",
   "updateProfile": "更新配置",

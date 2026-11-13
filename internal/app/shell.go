@@ -168,11 +168,11 @@ func (a *App) toolbar(c *ui.Context, compact bool) {
 			a.serverPicker(c, false)
 		}
 		if a.settings.ActiveID == localID || a.settings.ActiveID == "" {
-			label := locales.In(a.language()).Start()
 			if a.coreState.Phase == "running" {
-				label = locales.In(a.language()).Stop()
+				transitionedButton(c, locales.In(a.language()).Stop()).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
+			} else {
+				transitionedPrimaryButton(c, locales.In(a.language()).Start()).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
 			}
-			transitionedButton(c, label).Disabled(a.busy["core-start"] || a.busy["core-stop"] || a.closing).OnClick(a.toggleCore)
 		} else {
 			a.iconButton(c, "reconnect", locales.In(a.language()).Retry(), "↻", func() { a.activate(a.settings.ActiveID) })
 		}

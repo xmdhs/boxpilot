@@ -2930,6 +2930,22 @@ func (msgs Messages) Status() string {
 	return Catalog.Format(msgs.locale, "status", nil)
 }
 
+// TunRequiresAdministratorMode says that a TUN inbound needs administrator mode on Windows.
+// in the language the app shows.
+//
+// BoxPilot user-interface text.
+func TunRequiresAdministratorMode() string {
+	return In(i18n.Locale()).TunRequiresAdministratorMode()
+}
+
+// TunRequiresAdministratorMode says that a TUN inbound needs administrator mode on Windows.
+// in the language of msgs.
+//
+// BoxPilot user-interface text.
+func (msgs Messages) TunRequiresAdministratorMode() string {
+	return Catalog.Format(msgs.locale, "tunRequiresAdministratorMode", nil)
+}
+
 // Stop says "Stop"
 // in the language the app shows.
 //

@@ -24,6 +24,30 @@ var profileIDPattern = regexp.MustCompile(`^[a-f0-9]{48}$`)
 func DefaultConfig() string {
 	return "{\n  \"log\": {\"level\": \"info\"},\n  \"outbounds\": [{\"type\": \"direct\", \"tag\": \"direct\"}]\n}\n"
 }
+func ConfigHasTUNInbound(content []byte) (bool, error) {
+	config, err := parseConfig(content)
+	if err != nil {
+		return false, err
+	}
+	var inbounds []struct {
+		Type string `json:"type"`
+	}
+	if raw, ok := config["inbounds"]; ok {
+		if strings.TrimSpace(string(raw)) == "null" {
+			return false, errors.New("inbounds must be an array")
+		}
+		if err := json.Unmarshal(raw, &inbounds); err != nil {
+			return false, fmt.Errorf("inbounds: %w", err)
+		}
+	}
+	for _, inbound := range inbounds {
+		if inbound.Type == "tun" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func parseConfig(content []byte) (map[string]json.RawMessage, error) {
 	if int64(len(content)) > maxConfigSize {
 		return nil, errors.New("configuration too large")

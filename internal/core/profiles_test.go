@@ -134,6 +134,29 @@ func TestAPIConflictAndInvalidConfig(t *testing.T) {
 		t.Fatal("unsafe default")
 	}
 }
+func TestConfigHasTUNInbound(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		json string
+		want bool
+	}{
+		{name: "tun inbound", json: `{"inbounds":[{"type":"tun"}]}`, want: true},
+		{name: "other inbound", json: `{"inbounds":[{"type":"mixed"}]}`},
+		{name: "tun in unrelated string", json: `{"description":"tun","inbounds":[{"type":"mixed"}]}`},
+		{name: "missing inbounds", json: `{}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ConfigHasTUNInbound([]byte(tc.json))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Fatalf("ConfigHasTUNInbound() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseConfigDepthBoundaries(t *testing.T) {
 	// Fixtures stop at one past the limit; do not feed resource-exhausting
 	// depths into the recursive JSONC parser, even in a regression test.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/xmdhs/boxpilot/locales"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +17,7 @@ import (
 	"github.com/xmdhs/boxpilot/internal/gen/daemon"
 	"github.com/xmdhs/boxpilot/internal/model"
 	"github.com/xmdhs/boxpilot/internal/storage"
+	"github.com/xmdhs/boxpilot/locales"
 )
 
 const localID = "managed-local"
@@ -661,6 +662,22 @@ func (a *App) startCore(replace bool) {
 	if !ok {
 		a.fail(errors.New(locales.In(a.language()).EmptyProfiles()))
 		return
+	}
+	if runtime.GOOS == "windows" && !a.settings.ElevateCore {
+		content, err := core.ReadProfile(p)
+		if err != nil {
+			a.fail(err)
+			return
+		}
+		hasTUN, err := core.ConfigHasTUNInbound([]byte(content))
+		if err != nil {
+			a.fail(err)
+			return
+		}
+		if hasTUN {
+			a.fail(errors.New(locales.In(a.language()).TunRequiresAdministratorMode()))
+			return
+		}
 	}
 	binary := a.settings.CorePath
 	if binary == "" {
